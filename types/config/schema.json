@@ -1,0 +1,81 @@
+{
+  "$id": "https://github.com/data-fair/catalog-udata/config",
+  "x-exports": [
+    "types",
+    "validate",
+    "schema"
+  ],
+  "title": "UDataConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "url",
+    "apiKey",
+    "portal"
+  ],
+  "properties": {
+    "url": {
+      "type": "string",
+      "title": "URL",
+      "description": "The URL of the catalog API",
+      "x-i18n-description": {
+        "fr": "L'URL de l'API du catalogue"
+      },
+      "pattern": "^https?://.+"
+    },
+    "apiKey": {
+      "type": "string",
+      "title": "API Key",
+      "x-i18n-title": {
+        "fr": "Clé API"
+      },
+      "description": "This key is to be configured in your profile on the catalog.",
+      "x-i18n-description": {
+        "fr": "Cette clé est à configurer dans votre profil sur le catalogue."
+      }
+    },
+    "portal": {
+      "type": "string",
+      "title": "Portal",
+      "x-i18n-title": {
+        "fr": "Portail"
+      },
+      "description": "The portal to use to access datasets and applications from the remote catalog.",
+      "x-i18n-description": {
+        "fr": "Le portail de redirection à utiliser pour accéder aux jeux de données et applications depuis le catalogue distant."
+      },
+      "default": "https://koumoul.com/data-fair",
+      "pattern": "^https?://.*[^/]$"
+    },
+    "organization": {
+      "type": "object",
+      "title": "Organization",
+      "x-i18n-title": {
+        "fr": "Organisation"
+      },
+      "description": "Leave empty to work on a personal account. Otherwise use the identifier of an organization in which you have write access.",
+      "x-i18n-description": {
+        "fr": "Laissez vide pour travailler sur un compte personnel. Sinon utilisez l'identifiant d'une organisation dans laquelle vous avez le droit d'écriture."
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The ID of the organization."
+        },
+        "name": {
+          "type": "string"
+        }
+      },
+      "layout": {
+        "getItems": {
+          "url": "${rootData.url}/api/1/organizations/suggest/?q={q}",
+          "itemTitle": "item.name"
+        }
+      }
+    }
+  }
+}
