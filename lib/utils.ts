@@ -21,14 +21,8 @@ export const prepareDatasetFromCatalog = (catalogConfig: UDataConfig, udataDatas
         mimeType: udataResource.mime,
         size: udataResource.fileSize
       }
-      if (udataResource.extras && udataResource.extras.datafairOrigin === catalogConfig.portal) {
-        resource.datafairDatasetId = udataResource.extras.datafairDatasetId
-      }
       return resource
     })
-  }
-  if (udataDataset.extras && udataDataset.extras.datafairOrigin === catalogConfig.portal) {
-    dataset.datafairDatasetId = udataDataset.extras.datafairDatasetId
   }
   return dataset
 }
@@ -39,15 +33,6 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
   const datasetUrl = catalogConfig.portal + '/' + dataset.id
   const resources = []
   if (!dataset.isMetaOnly) {
-    resources.push({
-      title: 'Description des champs',
-      description: 'Description détaillée et types sémantiques des champs',
-      url: datasetUrl,
-      type: 'documentation',
-      filetype: 'remote',
-      format: 'Page Web',
-      mime: 'text/html'
-    })
     resources.push({
       title: 'Documentation de l\'API',
       description: 'Documentation interactive de l\'API à destination des développeurs. La description de l\'API utilise la spécification [OpenAPI 3.1.1](https://github.com/OAI/OpenAPI-Specification)',
@@ -130,10 +115,6 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
     title: dataset.title,
     description: dataset.description || dataset.title, // Description field is required
     private: !dataset.public,
-    extras: {
-      datafairOrigin: catalogConfig.portal,
-      datafairDatasetId: dataset.id
-    },
     resources
   }
   if (dataset.frequency) udataDataset.frequency = dataset.frequency
@@ -155,25 +136,26 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
   if (catalogConfig.organization?.id) udataDataset.organization = { id: catalogConfig.organization.id }
 
   // Try to retrive the distant dataset to update it
-  let existingDataset
   if (publication.remoteDatasetId) {
-    existingDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId + '/', catalogConfig.url).href, axiosOptions)).data
-    if (!existingDataset?.deleted) throw httpError(404, `Impossible de récupérer le jeu de données existant depuis ${catalogConfig.url}. A-t-il été supprimé du catalogue ?`)
+    const existingUdataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId, catalogConfig.url).href, axiosOptions)).data
+    if (!existingUdataDataset) {
+      const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
+      publication.remoteDatasetId = res.data.id
+      return publication
+    } else if (existingUdataDataset.deleted) {
+      existingUdataDataset.deleted = null
+    }
 
     // preserving resource id so that URLs are not broken
-    if (existingDataset.resources) {
+    if (existingUdataDataset.resources) {
       for (const resource of udataDataset.resources) {
-        const matchingResource = existingDataset.resources.find((r: { url?: string }) => resource.url === r.url)
+        const matchingResource = existingUdataDataset.resources.find((r: { url?: string }) => resource.url === r.url)
         if (matchingResource) resource.id = matchingResource.id
       }
     }
-  }
 
-  if (publication.remoteDatasetId && existingDataset) {
-    Object.assign(existingDataset, udataDataset)
-    await axios.put(new URL('api/1/datasets/' + publication.remoteDatasetId + '/', catalogConfig.url).href, existingDataset, axiosOptions)
-  // } else if (publication.replaceDataset?.id) {
-  //   res = await axios.put(new URL('api/1/datasets/' + publication.replaceDataset.id + '/', catalogConfig.url).href, udataDataset, axiosOptions)
+    Object.assign(existingUdataDataset, udataDataset)
+    await axios.put(new URL('api/1/datasets/' + publication.remoteDatasetId, catalogConfig.url).href, existingUdataDataset, axiosOptions)
   } else {
     const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
     publication.remoteDatasetId = res.data.id
@@ -187,5 +169,45 @@ export const deleteUdataDataset = async (catalogConfig: UDataConfig, datasetId: 
     await axios.delete(new URL(`api/1/datasets/${datasetId}/`, catalogConfig.url).href, { headers: { 'X-API-KEY': catalogConfig.apiKey } })
   } catch (e: any) {
     if (![404, 410].includes(e.status)) throw httpError(500, `Erreur lors de la suppression du jeu de données sur ${catalogConfig.url} : ${e.message}`)
+  }
+}
+
+export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
+  const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
+  if (!publication.remoteDatasetId) throw httpError(400, 'Pas de jeu de données distant associé à cette publication')
+  const udataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId, catalogConfig.url).href, axiosOptions)).data
+  if (!udataDataset) throw httpError(404, 'Jeu de données distant introuvable')
+  if (udataDataset.deleted) throw httpError(410, 'Jeu de données distant supprimé')
+
+  // const existingUdataResource = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId + '/resources/' + publication.remoteResourceId, catalogConfig.url).href, axiosOptions)).data
+  const existingUdataResource = udataDataset.resources.find((r: { id: string }) => r.id === publication.remoteResourceId)
+  if (publication.remoteResourceId && existingUdataResource) { // Update it
+    existingUdataResource.title = `${dataset.title} - Consultez les données`
+    existingUdataResource.description = `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`
+    existingUdataResource.url = catalogConfig.portal + '/' + dataset.id
+    await axios.put(new URL('api/1/datasets/' + publication.remoteDatasetId + '/resources/' + publication.remoteResourceId, catalogConfig.url).href, existingUdataResource, axiosOptions)
+  } else { // Add it
+    const resource = {
+      title: `${dataset.title} - Consultez les données`,
+      description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
+      url: catalogConfig.portal + '/' + dataset.id,
+      type: 'main',
+      filetype: 'remote',
+      format: 'Page Web',
+      mime: 'text/html'
+    }
+
+    const res = await axios.post(new URL('api/1/datasets/' + publication.remoteDatasetId + '/resources/', catalogConfig.url).href, resource, axiosOptions)
+    publication.remoteResourceId = res.data.id
+  }
+
+  return publication
+}
+
+export const deleteUdataResource = async (catalogConfig: UDataConfig, datasetId: string, resourceId: string) => {
+  try {
+    await axios.delete(new URL(`api/1/datasets/${datasetId}/resources/${resourceId}`, catalogConfig.url).href, { headers: { 'X-API-KEY': catalogConfig.apiKey } })
+  } catch (e: any) {
+    if (![404, 410].includes(e.status)) throw httpError(500, `Erreur lors de la suppression de la ressource sur ${catalogConfig.url} : ${e.message}`)
   }
 }

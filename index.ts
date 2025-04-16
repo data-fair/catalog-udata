@@ -1,7 +1,7 @@
 import type { CatalogPlugin, CatalogMetadata, CatalogDataset, Publication } from '@data-fair/lib-common-types/catalog.js'
 
 import { schema as configSchema, assertValid as assertConfigValid, type UDataConfig } from './types/config/index.ts'
-import { prepareDatasetFromCatalog, createOrUpdateDataset, deleteUdataDataset } from './lib/utils.ts'
+import { prepareDatasetFromCatalog, createOrUpdateDataset, deleteUdataDataset, addOrUpdateResource, deleteUdataResource } from './lib/utils.ts'
 import axios from '@data-fair/lib-node/axios.js'
 
 // API Reference: https://doc.data.gouv.fr/api/reference/#/
@@ -32,15 +32,13 @@ const getDataset = async (catalogConfig: UDataConfig, datasetId: string) => {
 }
 
 const publishDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
-  // if (publication.addToDataset.id) return addResourceToDataset(catalogConfig, dataset, publication)
-  // else return createOrUpdateDataset(catalogConfig, dataset, publication)
-  return await createOrUpdateDataset(catalogConfig, dataset, publication)
+  if (publication.remoteResourceId) return addOrUpdateResource(catalogConfig, dataset, publication)
+  else return await createOrUpdateDataset(catalogConfig, dataset, publication)
 }
 
-const deleteDataset = async (catalogConfig: UDataConfig, datasetId: string) => {
-  // if (publication.addToDataset && publication.addToDataset.id) return deleteResourceFromDataset(catalog, dataset, publication)
-  // else return deleteUdataDataset(catalog, dataset, publication)
-  await deleteUdataDataset(catalogConfig, datasetId)
+const deleteDataset = async (catalogConfig: UDataConfig, datasetId: string, resourceId?: string) => {
+  if (resourceId) return await deleteUdataResource(catalogConfig, datasetId, resourceId)
+  else await deleteUdataDataset(catalogConfig, datasetId)
 }
 
 const metadata: CatalogMetadata = {
