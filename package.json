@@ -33,6 +33,6 @@
     "typescript": "^5.7.3"
   },
   "relativeDependencies": {
-    "@data-fair/lib-common-types": "./lib/packages/common-types"
+    "@data-fair/lib-common-types": "../lib/packages/common-types"
   }
 }

@@ -32,6 +32,11 @@
       "description": "This key is to be configured in your profile on the catalog.",
       "x-i18n-description": {
         "fr": "Cette clé est à configurer dans votre profil sur le catalogue."
+      },
+      "layout": {
+        "props": {
+          "type": "password"
+        }
       }
     },
     "portal": {

@@ -155,11 +155,9 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
   if (catalogConfig.organization?.id) udataDataset.organization = { id: catalogConfig.organization.id }
 
   // Try to retrive the distant dataset to update it
-  const updateDatasetId = publication.result && publication.result.id
   let existingDataset
-  if (updateDatasetId) {
-    delete publication.replaceDataset
-    existingDataset = (await axios.get(new URL('api/1/datasets/' + updateDatasetId + '/', catalogConfig.url).href, axiosOptions)).data
+  if (publication.remoteDatasetId) {
+    existingDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId + '/', catalogConfig.url).href, axiosOptions)).data
     if (!existingDataset?.deleted) throw httpError(404, `Impossible de récupérer le jeu de données existant depuis ${catalogConfig.url}. A-t-il été supprimé du catalogue ?`)
 
     // preserving resource id so that URLs are not broken
@@ -171,21 +169,23 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
     }
   }
 
-  let res
-  if (updateDatasetId && existingDataset) {
+  if (publication.remoteDatasetId && existingDataset) {
     Object.assign(existingDataset, udataDataset)
-    res = await axios.put(new URL('api/1/datasets/' + updateDatasetId + '/', catalogConfig.url).href, existingDataset, axiosOptions)
-  } else if (publication.replaceDataset?.id) {
-    res = await axios.put(new URL('api/1/datasets/' + publication.replaceDataset.id + '/', catalogConfig.url).href, udataDataset, axiosOptions)
+    await axios.put(new URL('api/1/datasets/' + publication.remoteDatasetId + '/', catalogConfig.url).href, existingDataset, axiosOptions)
+  // } else if (publication.replaceDataset?.id) {
+  //   res = await axios.put(new URL('api/1/datasets/' + publication.replaceDataset.id + '/', catalogConfig.url).href, udataDataset, axiosOptions)
   } else {
-    res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
+    const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
+    publication.remoteDatasetId = res.data.id
   }
-
-  if (!res.data.page || typeof res.data.page !== 'string') {
-    throw httpError(500, `Erreur lors de la publication sur le catalogue distant ${catalogConfig.url} : le format de retour n'est pas correct.`)
-  }
-  publication.targetUrl = res.data.page
-  publication.result = { id: res.data.id, slug: res.data.slug }
 
   return publication
+}
+
+export const deleteUdataDataset = async (catalogConfig: UDataConfig, datasetId: string) => {
+  try {
+    await axios.delete(new URL(`api/1/datasets/${datasetId}/`, catalogConfig.url).href, { headers: { 'X-API-KEY': catalogConfig.apiKey } })
+  } catch (e: any) {
+    if (![404, 410].includes(e.status)) throw httpError(500, `Erreur lors de la suppression du jeu de données sur ${catalogConfig.url} : ${e.message}`)
+  }
 }
