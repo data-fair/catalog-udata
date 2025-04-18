@@ -17,11 +17,12 @@
     "url": {
       "type": "string",
       "title": "URL",
-      "description": "The URL of the catalog API",
+      "description": "The url of the catalog",
       "x-i18n-description": {
         "fr": "L'URL de l'API du catalogue"
       },
-      "pattern": "^https?://.+"
+      "pattern": "^https?://.*[^/]$",
+      "examples": ["https://data.gouv.fr"]
     },
     "apiKey": {
       "type": "string",
@@ -45,9 +46,9 @@
       "x-i18n-title": {
         "fr": "Portail"
       },
-      "description": "The portal to use to access datasets and applications from the remote catalog.",
+      "description": "The portal to use to access datasets from the remote catalog.",
       "x-i18n-description": {
-        "fr": "Le portail de redirection à utiliser pour accéder aux jeux de données et applications depuis le catalogue distant."
+        "fr": "Le portail de redirection à utiliser pour accéder aux jeux de données depuis le catalogue distant."
       },
       "default": "https://koumoul.com/data-fair",
       "pattern": "^https?://.*[^/]$"
@@ -58,9 +59,9 @@
       "x-i18n-title": {
         "fr": "Organisation"
       },
-      "description": "Leave empty to work on a personal account. Otherwise use the identifier of an organization in which you have write access.",
+      "description": "Leave empty to publish on a personal account. Otherwise, use an organization where you have write permissions.",
       "x-i18n-description": {
-        "fr": "Laissez vide pour travailler sur un compte personnel. Sinon utilisez l'identifiant d'une organisation dans laquelle vous avez le droit d'écriture."
+        "fr": "Laissez vide pour publier sur un compte personnel. Sinon utilisez une organisation dans laquelle vous avez le droit d'écriture."
       },
       "required": [
         "id",
@@ -68,17 +69,26 @@
       ],
       "properties": {
         "id": {
-          "type": "string",
-          "description": "The ID of the organization."
+          "type": "string"
         },
         "name": {
+          "type": "string"
+        },
+        "image_url": {
           "type": "string"
         }
       },
       "layout": {
         "getItems": {
-          "url": "${rootData.url}/api/1/organizations/suggest/?q={q}",
-          "itemTitle": "item.name"
+          "url": "${parent.data.url}/api/1/organizations/suggest/?q={q}",
+          "itemTitle": "item.name",
+          "itemIcon": "item.image_url"
+        },
+        "props": {
+          "placeholder": "Search...",
+          "x-i18n-placeholder": {
+            "fr": "Rechercher..."
+          }
         }
       }
     }
