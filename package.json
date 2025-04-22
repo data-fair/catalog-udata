@@ -11,12 +11,15 @@
     "quality": "npm run lint && npm run build-types && npm run check-types && npm audit --omit=dev --audit-level=critical"
   },
   "files": [
-    "**/*.js",
+    "**/*.ts",
     "**/types/config/**"
   ],
   "imports": {
     "#types": "./types/index.ts"
   },
+  "keywords": [
+    "data-fair-catalogs-plugin"
+  ],
   "license": "MIT",
   "dependencies": {
     "@data-fair/lib-node": "^2.8.1",
