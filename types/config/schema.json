@@ -82,7 +82,10 @@
         "getItems": {
           "url": "${parent.data.url}/api/1/organizations/suggest/?q={q}",
           "itemTitle": "item.name",
-          "itemIcon": "item.image_url"
+          "itemIcon": "item.image_url",
+          "headers": {
+            "X-API-KEY": "parent.data.apiKey"
+          }
         },
         "props": {
           "placeholder": "Search...",
@@ -92,5 +95,23 @@
         }
       }
     }
-  }
+  },
+  "layout": [
+    {
+      "children": [
+        "url",
+        "apiKey"
+      ]
+    },
+    {
+      "title": "Publication settings",
+      "x-i18n-title": {
+        "fr": "Paramètres de publication"
+      },
+      "children": [
+        "portal",
+        "organization"
+      ]
+    }
+  ]
 }

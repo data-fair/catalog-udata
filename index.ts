@@ -3,24 +3,23 @@ import type { CatalogPlugin, CatalogMetadata, CatalogDataset, Publication } from
 import { schema as configSchema, assertValid as assertConfigValid, type UDataConfig } from './types/config/index.ts'
 import { prepareDatasetFromCatalog, createOrUpdateDataset, deleteUdataDataset, addOrUpdateResource, deleteUdataResource } from './lib/utils.ts'
 import axios from '@data-fair/lib-node/axios.js'
+import filtersSchema from './lib/filtersSchema.ts'
 
 // API Reference: https://doc.data.gouv.fr/api/reference/#/
 // OpenAPI Reference: https://www.data.gouv.fr/api/1/swagger.json
 
-const listDatasets = async (catalogConfig: UDataConfig, params: { q?: string, size?: number, page?: number }) => {
-  const axiosOptions: Record<string, any> = { headers: { 'X-API-KEY': catalogConfig.apiKey }, params: {} }
+const listDatasets = async (catalogConfig: UDataConfig, params: { q?: string, size?: number, page?: number, onlyMe?: string, organization?: string }) => {
+  const axiosOptions: Record<string, any> = { headers: {}, params: {} }
+  if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
   if (params.size && params.page) axiosOptions.params = { size: params.size, page_size: params.page }
   if (params.q) axiosOptions.params.q = params.q
 
   let datasets
-  if (catalogConfig.organization) {
-    const distantDatasets: { data: { organization?: { id: string } }[] } =
-      await axios.get(new URL('api/1/me/org_datasets', catalogConfig.url).href, axiosOptions)
-    datasets = distantDatasets.data.filter(d => d.organization?.id === catalogConfig.organization!.id)
+  if (params.onlyMe) {
+    datasets = (await axios.get(new URL('api/1/me/org_datasets', catalogConfig.url).href, axiosOptions)).data
   } else {
-    datasets = (await axios.get(new URL('api/1/me/datasets', catalogConfig.url).href, axiosOptions)).data
-    // For me/datasets, the API does not support searching
-    if (params.q) datasets = datasets.filter((d: any) => d.title?.toLowerCase().includes(params.q!.toLowerCase()))
+    axiosOptions.params.organization = params.organization
+    datasets = (await axios.get(new URL('api/1/datasets/', catalogConfig.url).href, axiosOptions)).data
   }
 
   datasets = datasets.filter((d: any) => !d.deleted)
@@ -57,7 +56,8 @@ const capabilities = [
   'listDatasets' as const,
   'search' as const,
   'pagination' as const,
-  'publishDataset' as const
+  'additionalFilters' as const,
+  'publishDataset' as const,
 ]
 
 const metadata: CatalogMetadata<typeof capabilities> = {
@@ -72,6 +72,7 @@ const plugin: CatalogPlugin<UDataConfig, typeof capabilities> = {
   getDataset,
   publishDataset,
   deleteDataset,
+  filtersSchema,
   configSchema,
   assertConfigValid,
   metadata
