@@ -36,7 +36,8 @@
       },
       "layout": {
         "props": {
-          "type": "password"
+          "type": "password",
+          "autocomplete": "new-password"
         }
       }
     },
