@@ -3,7 +3,7 @@ export default {
   additionalProperties: false,
   properties: {
     organization: {
-      type: 'object',
+      type: 'string',
       title: 'Organization',
       'x-i18n-title': {
         fr: 'Organisation'
@@ -12,30 +12,16 @@ export default {
       'x-i18n-description': {
         fr: 'Filtrer les jeux de données par une organisation.'
       },
-      required: [
-        'id',
-        'name'
-      ],
-      properties: {
-        id: {
-          type: 'string'
-        },
-        name: {
-          type: 'string'
-        },
-        image_url: {
-          type: 'string'
-        }
-      },
       layout: {
         getItems: {
           url: 'https://demo.data.gouv.fr/api/1/organizations/suggest/',
           itemTitle: 'item.name',
+          itemValue: 'item.id',
           itemIcon: 'item.image_url',
           qSearchParam: 'q'
         },
         if: {
-          expr: '!parent.data.me'
+          expr: 'parent.data.showAll'
         },
         props: {
           placeholder: 'Search...',
@@ -46,14 +32,15 @@ export default {
         cols: 8
       }
     },
-    onlyMe: {
+    showAll: {
       type: 'boolean',
-      title: 'My datasets only',
+      title: 'Show all datasets',
       'x-i18n-title': {
-        fr: 'Mes jeux de données uniquement'
+        fr: 'Voir tous les jeux de données'
       },
       layout: {
-        cols: 4
+        cols: 4,
+        comp: 'switch'
       }
     }
   }

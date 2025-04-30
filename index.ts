@@ -8,27 +8,28 @@ import filtersSchema from './lib/filtersSchema.ts'
 // API Reference: https://doc.data.gouv.fr/api/reference/#/
 // OpenAPI Reference: https://www.data.gouv.fr/api/1/swagger.json
 
-const listDatasets = async (catalogConfig: UDataConfig, params: { q?: string, size?: number, page?: number, onlyMe?: string, organization?: string }) => {
+const listDatasets = async (catalogConfig: UDataConfig, params: { q?: string, size?: number, page?: number, showAll?: string, organization?: string }) => {
   const axiosOptions: Record<string, any> = { headers: {}, params: {} }
   if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
-  if (params.size && params.page) axiosOptions.params = { size: params.size, page_size: params.page }
   if (params.q) axiosOptions.params.q = params.q
 
   let datasets
-  if (params.onlyMe) {
-    datasets = (await axios.get(new URL('api/1/me/org_datasets', catalogConfig.url).href, axiosOptions)).data
-  } else {
+  let count
+  if (params.showAll === 'true') {
+    if (params.size && params.page) axiosOptions.params = { page: params.page, page_size: params.size }
     axiosOptions.params.organization = params.organization
-    datasets = (await axios.get(new URL('api/1/datasets/', catalogConfig.url).href, axiosOptions)).data
-  }
-
-  datasets = datasets.filter((d: any) => !d.deleted)
-  // For me/datasets and me/org_datasets, the API does not support pagination
-  const count = datasets.length // Count before pagination
-  if (params.size && params.page) {
-    const startIndex = (params.page - 1) * params.size
-    const endIndex = startIndex + Number(params.size)
-    datasets = datasets.slice(startIndex, endIndex)
+    const result = (await axios.get(new URL('api/1/datasets/', catalogConfig.url).href, axiosOptions)).data
+    datasets = result.data
+    count = result.total
+  } else {
+    datasets = (await axios.get(new URL('api/1/me/org_datasets', catalogConfig.url).href, axiosOptions)).data
+    datasets = datasets.filter((d: any) => !d.deleted)
+    if (params.size && params.page) {
+      const startIndex = (params.page - 1) * params.size
+      const endIndex = startIndex + Number(params.size)
+      datasets = datasets.slice(startIndex, endIndex)
+    }
+    count = datasets.length
   }
 
   return {

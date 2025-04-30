@@ -19,10 +19,12 @@
       "title": "URL",
       "description": "The url of the catalog",
       "x-i18n-description": {
-        "fr": "L'URL de l'API du catalogue"
+        "fr": "L'URL du catalogue"
       },
       "pattern": "^https?://.*[^/]$",
-      "examples": ["https://data.gouv.fr"]
+      "examples": [
+        "https://data.gouv.fr"
+      ]
     },
     "apiKey": {
       "type": "string",
@@ -75,23 +77,18 @@
         "name": {
           "type": "string"
         },
-        "image_url": {
+        "logo": {
           "type": "string"
         }
       },
       "layout": {
         "getItems": {
-          "url": "${parent.data.url}/api/1/organizations/suggest/?q={q}",
+          "url": "${parent.data.url}/api/1/me",
+          "itemsResults": "data.organizations",
           "itemTitle": "item.name",
-          "itemIcon": "item.image_url",
+          "itemIcon": "item.logo",
           "headers": {
             "X-API-KEY": "parent.data.apiKey"
-          }
-        },
-        "props": {
-          "placeholder": "Search...",
-          "x-i18n-placeholder": {
-            "fr": "Rechercher..."
           }
         }
       }
