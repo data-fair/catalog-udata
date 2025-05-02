@@ -44,7 +44,7 @@ const getDataset = async (catalogConfig: UDataConfig, datasetId: string) => {
 }
 
 const publishDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
-  if (publication.remoteResourceId) return addOrUpdateResource(catalogConfig, dataset, publication)
+  if (publication.isResource) return addOrUpdateResource(catalogConfig, dataset, publication)
   else return await createOrUpdateDataset(catalogConfig, dataset, publication)
 }
 
