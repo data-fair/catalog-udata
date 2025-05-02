@@ -26,13 +26,13 @@
   "license": "MIT",
   "dependencies": {
     "@data-fair/lib-node": "^2.8.1",
-    "@data-fair/lib-utils": "^1.5.0"
+    "@data-fair/lib-utils": "^1.6.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
-    "@data-fair/lib-common-types": "^1.8.4",
-    "@data-fair/lib-types-builder": "^1.7.0",
+    "@data-fair/lib-common-types": "^1.9.2",
+    "@data-fair/lib-types-builder": "^1.8.0",
     "eslint": "^9.25.1",
     "husky": "^9.1.7",
     "neostandard": "^0.12.1",

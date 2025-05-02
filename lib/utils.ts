@@ -1,4 +1,4 @@
-import type { CatalogDataset, CatalogResourceDataset, Publication } from '@data-fair/lib-common-types/catalog.js'
+import type { CatalogDataset, CatalogResourceDataset, Publication } from '@data-fair/lib-common-types/catalog/index.js'
 import type { UDataConfig, License } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'

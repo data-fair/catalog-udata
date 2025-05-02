@@ -1,4 +1,4 @@
-import type { CatalogPlugin, CatalogMetadata, CatalogDataset, Publication } from '@data-fair/lib-common-types/catalog.js'
+import type { CatalogPlugin, CatalogMetadata, CatalogDataset, Publication } from '@data-fair/lib-common-types/catalog/index.js'
 
 import { schema as configSchema, assertValid as assertConfigValid, type UDataConfig } from './types/config/index.ts'
 import { prepareDatasetFromCatalog, createOrUpdateDataset, deleteUdataDataset, addOrUpdateResource, deleteUdataResource } from './lib/utils.ts'
