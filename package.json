@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "prepare": "husky || true",
     "test": "",
-    "quality": "npm run lint && npm run build-types && npm run check-types && npm run test && npm audit --omit=dev --audit-level=critical"
+    "quality": "npm run lint && npm run build-types && npm run check-types && npm run test && npm audit --omit=dev --audit-level=critical",
+    "prepublishOnly": "npm run build-types"
   },
   "files": [
     "**/*.json",
