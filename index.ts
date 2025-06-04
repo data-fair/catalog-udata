@@ -1,18 +1,55 @@
-import type { CatalogPlugin, CatalogMetadata, CatalogDataset, Publication } from '@data-fair/lib-common-types/catalog/index.js'
+import type { CatalogPlugin, CatalogMetadata, Folder, Resource, Publication, ListContext, DownloadResourceContext } from '@data-fair/lib-common-types/catalog/index.js'
 
 import { schema as configSchema, assertValid as assertConfigValid, type UDataConfig } from './types/config/index.ts'
-import { prepareDatasetFromCatalog, createOrUpdateDataset, deleteUdataDataset, addOrUpdateResource, deleteUdataResource } from './lib/utils.ts'
+import { createOrUpdateDataset, deleteUdataDataset, addOrUpdateResource, deleteUdataResource } from './lib/utils.ts'
 import axios from '@data-fair/lib-node/axios.js'
 import filtersSchema from './lib/filtersSchema.ts'
 
 // API Reference: https://doc.data.gouv.fr/api/reference/#/
 // OpenAPI Reference: https://www.data.gouv.fr/api/1/swagger.json
 
-const listDatasets = async (catalogConfig: UDataConfig, params: { q?: string, size?: number, page?: number, showAll?: string, organization?: string }) => {
+const list = async ({ catalogConfig, params }: ListContext<UDataConfig, typeof capabilities>): Promise<{
+  count: number
+  results: (Folder | Resource)[]
+  path: Folder[]
+}> => {
   const axiosOptions: Record<string, any> = { headers: {}, params: {} }
   if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
   if (params.q) axiosOptions.params.q = params.q
 
+  // Si currentFolderId est présent, on récupère les ressources du dataset
+  if (params.currentFolderId) {
+    // Récupérer le dataset spécifique
+    const datasetResponse = await axios.get(new URL(`api/1/datasets/${params.currentFolderId}`, catalogConfig.url).href, axiosOptions)
+    const dataset = datasetResponse.data
+
+    // Convertir les ressources du dataset en format Resource[]
+    const resources: Resource[] = (dataset.resources || []).map((udataResource: any) => ({
+      id: `${dataset.id}:${udataResource.id}`,
+      title: udataResource.title,
+      type: 'resource',
+      description: dataset.description,
+      format: udataResource.format || 'unknown',
+      url: udataResource.url,
+      mimeType: udataResource.mime,
+      size: udataResource.filesize
+    }))
+
+    // Construire le path avec le folder du dataset
+    const path: Folder[] = [{
+      id: dataset.id,
+      title: dataset.title,
+      type: 'folder'
+    }]
+
+    return {
+      count: resources.length,
+      results: resources,
+      path
+    }
+  }
+
+  // Si pas de currentFolderId, on liste les datasets comme folders (niveau racine)
   let datasets
   let count
   if (params.showAll === 'true') {
@@ -32,15 +69,138 @@ const listDatasets = async (catalogConfig: UDataConfig, params: { q?: string, si
     count = datasets.length
   }
 
+  // Convertir les datasets en folders
+  const folders: Folder[] = datasets.map((dataset: any) => ({
+    id: dataset.id,
+    title: dataset.title,
+    type: 'folder'
+  }))
+
   return {
     count,
-    results: datasets.map((d: any) => prepareDatasetFromCatalog(catalogConfig, d)) as CatalogDataset[]
+    results: folders,
+    path: [] // Path vide pour le niveau racine
   }
 }
 
-const getDataset = async (catalogConfig: UDataConfig, datasetId: string) => {
-  const udataDataset = (await axios.get(new URL('api/1/datasets/' + datasetId, catalogConfig.url).href, { headers: { 'X-API-KEY': catalogConfig.apiKey } })).data
-  return prepareDatasetFromCatalog(catalogConfig, udataDataset)
+const getResource = async (catalogConfig: UDataConfig, resourceId: string): Promise<Resource | undefined> => {
+  // Décoder l'ID composite (format: "datasetId:resourceId")
+  const parts = resourceId.split(':')
+  if (parts.length !== 2) {
+    console.warn(`Format d'ID de ressource invalide: ${resourceId}. Attendu: "datasetId:resourceId"`)
+    return undefined
+  }
+
+  const [datasetId, udataResourceId] = parts
+
+  try {
+    // Configuration axios avec API key si disponible
+    const axiosOptions: Record<string, any> = { headers: {} }
+    if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
+
+    // Récupérer le dataset contenant la ressource
+    const datasetResponse = await axios.get(
+      new URL(`api/1/datasets/${datasetId}`, catalogConfig.url).href,
+      axiosOptions
+    )
+    const dataset = datasetResponse.data
+
+    // Trouver la ressource spécifique dans le dataset
+    const udataResource = dataset.resources?.find((r: any) => r.id === udataResourceId)
+    if (!udataResource) {
+      console.warn(`Ressource ${udataResourceId} non trouvée dans le dataset ${datasetId}`)
+      return undefined
+    }
+
+    // Convertir en format Resource
+    const resource: Resource = {
+      id: resourceId, // Garder l'ID composite
+      title: udataResource.title,
+      type: 'resource', // Propriété type requise
+      description: dataset.description,
+      format: udataResource.format || 'unknown',
+      url: udataResource.url,
+      mimeType: udataResource.mime,
+      size: udataResource.filesize
+    }
+
+    return resource
+  } catch (error) {
+    console.error(`Erreur lors de la récupération de la ressource ${resourceId}:`, error)
+    return undefined
+  }
+}
+
+const downloadResource = async ({ catalogConfig, resourceId, importConfig, tmpDir }: DownloadResourceContext<UDataConfig>): Promise<string | undefined> => {
+  // Décoder l'ID composite (format: "datasetId:resourceId")
+  const parts = resourceId.split(':')
+  if (parts.length !== 2) {
+    throw new Error(`Format d'ID de ressource invalide: ${resourceId}. Attendu: "datasetId:resourceId"`)
+  }
+
+  const [datasetId, udataResourceId] = parts
+
+  // Configuration axios avec API key si disponible
+  const axiosOptions: Record<string, any> = { headers: {} }
+  if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
+
+  // Récupérer le dataset contenant la ressource
+  const datasetResponse = await axios.get(
+    new URL(`api/1/datasets/${datasetId}`, catalogConfig.url).href,
+    axiosOptions
+  )
+  const dataset = datasetResponse.data
+
+  // Trouver la ressource spécifique dans le dataset
+  const udataResource = dataset.resources?.find((r: any) => r.id === udataResourceId)
+  if (!udataResource) {
+    throw new Error(`Ressource ${udataResourceId} non trouvée dans le dataset ${datasetId}`)
+  }
+
+  if (!udataResource.url) {
+    throw new Error(`URL manquante pour la ressource ${udataResourceId}`)
+  }
+
+  // Télécharger la ressource
+  const fs = await import('node:fs')
+  const path = await import('path')
+
+  const response = await axios.get(udataResource.url, {
+    responseType: 'stream'
+  })
+
+  // Déterminer l'extension du fichier à partir de l'URL ou du Content-Type
+  const urlPath = new URL(udataResource.url).pathname
+  let extension = path.extname(urlPath) || '.dat'
+  if (!extension || extension === '.dat') {
+    const contentType = response.headers['content-type']
+    if (contentType?.includes('json')) extension = '.json'
+    else if (contentType?.includes('csv')) extension = '.csv'
+    else if (contentType?.includes('xml')) extension = '.xml'
+    else if (contentType?.includes('excel')) extension = '.xlsx'
+    else if (contentType?.includes('zip')) extension = '.zip'
+  }
+
+  // Créer un nom de fichier sécurisé
+  const resourceTitle = udataResource.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'resource'
+  const fileName = `${resourceTitle}_${udataResourceId}${extension}`
+  const filePath = path.join(tmpDir, fileName)
+
+  // Créer le stream d'écriture
+  const writeStream = fs.createWriteStream(filePath)
+  response.data.pipe(writeStream)
+
+  // Retourner une promesse qui se résout avec le chemin du fichier
+  return new Promise((resolve, reject) => {
+    writeStream.on('finish', () => {
+      console.log(`Ressource téléchargée avec succès: ${filePath}`)
+      resolve(filePath)
+    })
+    writeStream.on('error', (error) => {
+      console.error(`Erreur lors de l'écriture du fichier: ${error}`)
+      reject(error)
+    })
+  })
 }
 
 const publishDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
@@ -54,23 +214,24 @@ const deleteDataset = async (catalogConfig: UDataConfig, datasetId: string, reso
 }
 
 const capabilities = [
-  'listDatasets' as const,
+  'import' as const,
   'search' as const,
   'pagination' as const,
   'additionalFilters' as const,
   'publishDataset' as const,
+  'deletePublication' as const,
 ]
 
 const metadata: CatalogMetadata<typeof capabilities> = {
   title: 'Catalog Udata',
   description: 'Importez / publiez des jeux de données depuis / vers un catalogue Udata. (ex. : data.gouv.fr)',
-  icon: 'M6,22A3,3 0 0,1 3,19C3,18.4 3.18,17.84 3.5,17.37L9,7.81V6A1,1 0 0,1 8,5V4A2,2 0 0,1 10,2H14A2,2 0 0,1 16,4V5A1,1 0 0,1 15,6V7.81L20.5,17.37C20.82,17.84 21,18.4 21,19A3,3 0 0,1 18,22H6M5,19A1,1 0 0,0 6,20H18A1,1 0 0,0 19,19C19,18.79 18.93,18.59 18.82,18.43L16.53,14.47L14,17L8.93,11.93L5.18,18.43C5.07,18.59 5,18.79 5,19M13,10A1,1 0 0,0 12,11A1,1 0 0,0 13,12A1,1 0 0,0 14,11A1,1 0 0,0 13,10Z',
   capabilities
 }
 
 const plugin: CatalogPlugin<UDataConfig, typeof capabilities> = {
-  listDatasets,
-  getDataset,
+  list,
+  getResource,
+  downloadResource,
   publishDataset,
   deleteDataset,
   filtersSchema,
@@ -78,4 +239,5 @@ const plugin: CatalogPlugin<UDataConfig, typeof capabilities> = {
   assertConfigValid,
   metadata
 }
+
 export default plugin

@@ -1,31 +1,8 @@
-import type { CatalogDataset, CatalogResourceDataset, Publication } from '@data-fair/lib-common-types/catalog/index.js'
+import type { Publication } from '@data-fair/lib-common-types/catalog/index.js'
 import type { UDataConfig, License } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'
 import { httpError } from '@data-fair/lib-utils/http-errors.js'
-
-export const prepareDatasetFromCatalog = (catalogConfig: UDataConfig, udataDataset: any) => {
-  const dataset: CatalogDataset = {
-    id: udataDataset.id,
-    title: udataDataset.title,
-    description: udataDataset.description,
-    keywords: udataDataset.tags,
-    origin: udataDataset.uri,
-    private: udataDataset.private,
-    resources: udataDataset.resources.map((udataResource: any) => {
-      const resource: CatalogResourceDataset = {
-        id: udataResource.id,
-        title: udataResource.title,
-        format: udataResource.format,
-        url: udataResource.url,
-        mimeType: udataResource.mime,
-        size: udataResource.fileSize
-      }
-      return resource
-    })
-  }
-  return dataset
-}
 
 export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
@@ -124,9 +101,6 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
       end: new Date(dataset.temporal.end ?? dataset.temporal.start).toISOString()
     }
   }
-  // We do not propagate spatial coverage for the moment as we can't push custom text
-  // See https://www.data.gouv.fr/api/1/spatial/granularities/
-  // if (dataset.spatial) udataDataset.spatial = { granularity: dataset.spatial }
   if (dataset.keywords && dataset.keywords.length) udataDataset.tags = dataset.keywords
   if (dataset.license) {
     const udataLicenses = (await axios.get<License[]>(new URL('api/1/datasets/licenses/', catalogConfig.url).href, axiosOptions)).data
@@ -136,11 +110,15 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
   if (catalogConfig.organization?.id) udataDataset.organization = { id: catalogConfig.organization.id }
 
   // Try to retrive the distant dataset to update it
-  if (publication.remoteDatasetId) {
-    const existingUdataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId, catalogConfig.url).href, axiosOptions)).data
+  if (publication.remoteDataset) {
+    const existingUdataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDataset.id, catalogConfig.url).href, axiosOptions)).data
+    // If the dataset no longer exists, we create it
     if (!existingUdataDataset) {
       const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
-      publication.remoteDatasetId = res.data.id
+      publication.remoteDataset = {
+        id: res.data.id,
+        title: res.data.title,
+      }
       return publication
     } else if (existingUdataDataset.deleted) {
       existingUdataDataset.deleted = null
@@ -155,10 +133,13 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
     }
 
     Object.assign(existingUdataDataset, udataDataset)
-    await axios.put(new URL('api/1/datasets/' + publication.remoteDatasetId, catalogConfig.url).href, existingUdataDataset, axiosOptions)
+    await axios.put(new URL('api/1/datasets/' + publication.remoteDataset.id, catalogConfig.url).href, existingUdataDataset, axiosOptions)
   } else {
     const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
-    publication.remoteDatasetId = res.data.id
+    publication.remoteDataset = {
+      id: res.data.id,
+      title: res.data.title
+    }
   }
 
   return publication
@@ -174,18 +155,17 @@ export const deleteUdataDataset = async (catalogConfig: UDataConfig, datasetId: 
 
 export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
-  if (!publication.remoteDatasetId) throw httpError(400, 'Pas de jeu de données distant associé à cette publication')
-  const udataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId, catalogConfig.url).href, axiosOptions)).data
+  if (!publication.remoteDataset) throw httpError(400, 'Pas de jeu de données distant associé à cette publication')
+  const udataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDataset.id, catalogConfig.url).href, axiosOptions)).data
   if (!udataDataset) throw httpError(404, 'Jeu de données distant introuvable')
   if (udataDataset.deleted) throw httpError(410, 'Jeu de données distant supprimé')
 
-  // const existingUdataResource = (await axios.get(new URL('api/1/datasets/' + publication.remoteDatasetId + '/resources/' + publication.remoteResourceId, catalogConfig.url).href, axiosOptions)).data
-  const existingUdataResource = udataDataset.resources.find((r: { id: string }) => r.id === publication.remoteResourceId)
-  if (publication.remoteResourceId && existingUdataResource) { // Update it
+  const existingUdataResource = udataDataset.resources.find((r: { id: string }) => r.id === publication.remoteResource?.id)
+  if (publication.remoteResource && existingUdataResource) { // Update it
     existingUdataResource.title = `${dataset.title} - Consultez les données`
     existingUdataResource.description = `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`
     existingUdataResource.url = catalogConfig.portal + '/' + dataset.id
-    await axios.put(new URL('api/1/datasets/' + publication.remoteDatasetId + '/resources/' + publication.remoteResourceId, catalogConfig.url).href, existingUdataResource, axiosOptions)
+    await axios.put(new URL('api/1/datasets/' + publication.remoteDataset.id + '/resources/' + publication.remoteResource.id, catalogConfig.url).href, existingUdataResource, axiosOptions)
   } else { // Add it
     const resource = {
       title: `${dataset.title} - Consultez les données`,
@@ -197,8 +177,11 @@ export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: a
       mime: 'text/html'
     }
 
-    const res = await axios.post(new URL('api/1/datasets/' + publication.remoteDatasetId + '/resources/', catalogConfig.url).href, resource, axiosOptions)
-    publication.remoteResourceId = res.data.id
+    const res = await axios.post(new URL('api/1/datasets/' + publication.remoteDataset.id + '/resources/', catalogConfig.url).href, resource, axiosOptions)
+    publication.remoteResource = {
+      id: res.data.id,
+      title: res.data.title
+    }
   }
 
   return publication
