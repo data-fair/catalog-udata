@@ -181,9 +181,9 @@ const downloadResource = async ({ catalogConfig, resourceId, importConfig, tmpDi
     else if (contentType?.includes('zip')) extension = '.zip'
   }
 
-  // Créer un nom de fichier sécurisé
+  // Créer un nom de fichier
   const resourceTitle = udataResource.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'resource'
-  const fileName = `${resourceTitle}_${udataResourceId}${extension}`
+  const fileName = `${resourceTitle}${extension}`
   const filePath = path.join(tmpDir, fileName)
 
   // Créer le stream d'écriture

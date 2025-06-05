@@ -7,13 +7,13 @@ import { httpError } from '@data-fair/lib-utils/http-errors.js'
 export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
 
-  const datasetUrl = catalogConfig.portal + '/' + dataset.id
+  const datasetUrl = catalogConfig.portal + '/datasets/' + dataset.id
   const resources = []
   if (!dataset.isMetaOnly) {
     resources.push({
       title: 'Documentation de l\'API',
       description: 'Documentation interactive de l\'API à destination des développeurs. La description de l\'API utilise la spécification [OpenAPI 3.1.1](https://github.com/OAI/OpenAPI-Specification)',
-      url: datasetUrl + '/api-docs',
+      url: datasetUrl + '/api-doc',
       type: 'documentation',
       filetype: 'remote',
       format: 'Page Web',
@@ -35,7 +35,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
     resources.push({
       title: `Fichier ${originalFileFormat}`,
       description: `Téléchargez le fichier complet au format ${originalFileFormat}.`,
-      url: `${catalogConfig.portal}/api/v1/datasets/${dataset.id}/raw`,
+      url: `${catalogConfig.portal}/data-fair/api/v1/datasets/${dataset.id}/raw`,
       type: 'main',
       filetype: 'remote',
       filesize: dataset.originalFile.size,
@@ -170,7 +170,7 @@ export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: a
     const resource = {
       title: `${dataset.title} - Consultez les données`,
       description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
-      url: catalogConfig.portal + '/' + dataset.id,
+      url: catalogConfig.portal + 'datasets/' + dataset.id,
       type: 'main',
       filetype: 'remote',
       format: 'Page Web',

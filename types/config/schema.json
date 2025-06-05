@@ -53,7 +53,7 @@
       "x-i18n-description": {
         "fr": "Le portail de redirection à utiliser pour accéder aux jeux de données depuis le catalogue distant."
       },
-      "default": "https://koumoul.com/data-fair",
+      "default": "https://koumoul.com",
       "pattern": "^https?://.*[^/]$"
     },
     "organization": {
