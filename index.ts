@@ -61,12 +61,12 @@ const list = async ({ catalogConfig, params }: ListContext<UDataConfig, typeof c
   } else {
     datasets = (await axios.get(new URL('api/1/me/org_datasets', catalogConfig.url).href, axiosOptions)).data
     datasets = datasets.filter((d: any) => !d.deleted)
+    count = datasets.length
     if (params.size && params.page) {
       const startIndex = (params.page - 1) * params.size
       const endIndex = startIndex + Number(params.size)
       datasets = datasets.slice(startIndex, endIndex)
     }
-    count = datasets.length
   }
 
   // Convertir les datasets en folders
