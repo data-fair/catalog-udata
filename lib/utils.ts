@@ -1,5 +1,5 @@
 import type { Publication } from '@data-fair/lib-common-types/catalog/index.js'
-import type { UDataConfig, License } from '#types'
+import type { UDataConfig } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'
 import { httpError } from '@data-fair/lib-utils/http-errors.js'
@@ -7,23 +7,33 @@ import { httpError } from '@data-fair/lib-utils/http-errors.js'
 export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
 
-  const datasetUrl = catalogConfig.portal + '/datasets/' + dataset.id
+  const datasetUrl = publication.publicationSite + '/datasets/' + dataset.id
   const resources = []
   if (!dataset.isMetaOnly) {
     resources.push({
-      title: 'Documentation de l\'API',
-      description: 'Documentation interactive de l\'API à destination des développeurs. La description de l\'API utilise la spécification [OpenAPI 3.1.1](https://github.com/OAI/OpenAPI-Specification)',
-      url: datasetUrl + '/api-doc',
-      type: 'documentation',
+      title: 'Consultez les données',
+      description: 'Consultez le jeu de données',
+      url: datasetUrl,
+      type: 'main',
       filetype: 'remote',
       format: 'Page Web',
       mime: 'text/html'
     })
+  } else {
     resources.push({
       title: 'Consultez les données',
       description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
       url: datasetUrl,
       type: 'main',
+      filetype: 'remote',
+      format: 'Page Web',
+      mime: 'text/html'
+    })
+    resources.push({
+      title: 'Documentation de l\'API',
+      description: 'Documentation interactive de l\'API à destination des développeurs. La description de l\'API utilise la spécification [OpenAPI 3.1.1](https://github.com/OAI/OpenAPI-Specification)',
+      url: datasetUrl + '/api-doc',
+      type: 'documentation',
       filetype: 'remote',
       format: 'Page Web',
       mime: 'text/html'
@@ -35,7 +45,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
     resources.push({
       title: `Fichier ${originalFileFormat}`,
       description: `Téléchargez le fichier complet au format ${originalFileFormat}.`,
-      url: `${catalogConfig.portal}/data-fair/api/v1/datasets/${dataset.id}/raw`,
+      url: `${publication.publicationSite}/data-fair/api/v1/datasets/${dataset.id}/raw`,
       type: 'main',
       filetype: 'remote',
       filesize: dataset.originalFile.size,
@@ -47,7 +57,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
       resources.push({
         title: `Fichier ${fileFormat}`,
         description: `Téléchargez le fichier complet au format ${fileFormat}.`,
-        url: `${catalogConfig.portal}/data-fair/api/v1/datasets/${dataset.id}/convert`,
+        url: `${publication.publicationSite}/data-fair/api/v1/datasets/${dataset.id}/convert`,
         type: 'main',
         filetype: 'remote',
         filesize: dataset.file.size,
@@ -70,7 +80,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${catalogConfig.portal}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publication.publicationSite}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         filesize: attachment.size,
         mime: attachment.mimetype,
@@ -81,7 +91,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${catalogConfig.portal}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publication.publicationSite}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         format: attachment.name.split('.').pop()
       })
@@ -103,7 +113,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
   }
   if (dataset.keywords && dataset.keywords.length) udataDataset.tags = dataset.keywords
   if (dataset.license) {
-    const udataLicenses = (await axios.get<License[]>(new URL('api/1/datasets/licenses/', catalogConfig.url).href, axiosOptions)).data
+    const udataLicenses = (await axios.get<any[]>(new URL('api/1/datasets/licenses/', catalogConfig.url).href, axiosOptions)).data
     const udataLicense = udataLicenses.find(l => l.url === dataset.license.href)
     if (udataLicense) udataDataset.license = udataLicense.id
   }
@@ -164,13 +174,13 @@ export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: a
   if (publication.remoteResource && existingUdataResource) { // Update it
     existingUdataResource.title = `${dataset.title} - Consultez les données`
     existingUdataResource.description = `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`
-    existingUdataResource.url = catalogConfig.portal + '/' + dataset.id
+    existingUdataResource.url = publication.publicationSite + '/' + dataset.id
     await axios.put(new URL('api/1/datasets/' + publication.remoteDataset.id + '/resources/' + publication.remoteResource.id, catalogConfig.url).href, existingUdataResource, axiosOptions)
   } else { // Add it
     const resource = {
       title: `${dataset.title} - Consultez les données`,
       description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
-      url: catalogConfig.portal + 'datasets/' + dataset.id,
+      url: publication.publicationSite + 'datasets/' + dataset.id,
       type: 'main',
       filetype: 'remote',
       format: 'Page Web',

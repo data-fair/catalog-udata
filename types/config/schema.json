@@ -10,8 +10,7 @@
   "additionalProperties": false,
   "required": [
     "url",
-    "apiKey",
-    "portal"
+    "apiKey"
   ],
   "properties": {
     "url": {
@@ -23,7 +22,8 @@
       },
       "pattern": "^https?://.*[^/]$",
       "examples": [
-        "https://data.gouv.fr"
+        "https://data.gouv.fr",
+        "https://demo.data.gouv.fr"
       ]
     },
     "apiKey": {
@@ -43,24 +43,11 @@
         }
       }
     },
-    "portal": {
-      "type": "string",
-      "title": "Portal",
-      "x-i18n-title": {
-        "fr": "Portail"
-      },
-      "description": "The portal to use to access datasets from the remote catalog.",
-      "x-i18n-description": {
-        "fr": "Le portail de redirection à utiliser pour accéder aux jeux de données depuis le catalogue distant."
-      },
-      "default": "https://koumoul.com",
-      "pattern": "^https?://.*[^/]$"
-    },
     "organization": {
       "type": "object",
-      "title": "Organization",
+      "title": "Organization for publication",
       "x-i18n-title": {
-        "fr": "Organisation"
+        "fr": "Organisation de publication"
       },
       "description": "Leave empty to publish on a personal account. Otherwise, use an organization where you have write permissions.",
       "x-i18n-description": {
@@ -107,7 +94,6 @@
         "fr": "Paramètres de publication"
       },
       "children": [
-        "portal",
         "organization"
       ]
     }
