@@ -1,13 +1,22 @@
 import type { Publication } from '@data-fair/lib-common-types/catalog/index.js'
 import type { UDataConfig } from '#types'
-
 import axios from '@data-fair/lib-node/axios.js'
 import { httpError } from '@data-fair/lib-utils/http-errors.js'
+
+export const publishDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
+  if (publication.isResource) return addOrUpdateResource(catalogConfig, dataset, publication)
+  else return await createOrUpdateDataset(catalogConfig, dataset, publication)
+}
+
+export const deleteDataset = async (catalogConfig: UDataConfig, datasetId: string, resourceId?: string) => {
+  if (resourceId) return await deleteUdataResource(catalogConfig, datasetId, resourceId)
+  else await deleteUdataDataset(catalogConfig, datasetId)
+}
 
 export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
 
-  const datasetUrl = publication.publicationSite + '/datasets/' + dataset.id
+  const datasetUrl = publication.publicationSite + '/dataset/' + dataset.id
   const resources = []
   if (!dataset.isMetaOnly) {
     resources.push({
@@ -148,7 +157,8 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
     const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
     publication.remoteDataset = {
       id: res.data.id,
-      title: res.data.title
+      title: res.data.title,
+      url: res.data.page
     }
   }
 
