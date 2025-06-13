@@ -1,7 +1,7 @@
 {
   "name": "@data-fair/catalog-udata",
   "description": "Udata plugin for the Data Fair catalogs service.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "main": "index.ts",
   "type": "module",
   "scripts": {
