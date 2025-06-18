@@ -2,6 +2,7 @@ import type { Publication } from '@data-fair/lib-common-types/catalog/index.js'
 import type { UDataConfig } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import { httpError } from '@data-fair/lib-utils/http-errors.js'
+import { microTemplate } from '@data-fair/lib-utils/micro-template.js'
 
 export const publishDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
   if (publication.isResource) return addOrUpdateResource(catalogConfig, dataset, publication)
@@ -16,9 +17,9 @@ export const deleteDataset = async (catalogConfig: UDataConfig, datasetId: strin
 export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
 
-  const datasetUrl = publication.publicationSite + '/dataset/' + dataset.id
+  const datasetUrl = microTemplate(publication.publicationSite || '', { id: dataset.id, slug: dataset.slug })
   const resources = []
-  if (!dataset.isMetaOnly) {
+  if (dataset.isMetaOnly) {
     resources.push({
       title: 'Consultez les données',
       description: 'Consultez le jeu de données',
@@ -184,13 +185,13 @@ export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: a
   if (publication.remoteResource && existingUdataResource) { // Update it
     existingUdataResource.title = `${dataset.title} - Consultez les données`
     existingUdataResource.description = `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`
-    existingUdataResource.url = publication.publicationSite + '/' + dataset.id
+    existingUdataResource.url = microTemplate(publication.publicationSite || '', { id: dataset.id, slug: dataset.slug })
     await axios.put(new URL('api/1/datasets/' + publication.remoteDataset.id + '/resources/' + publication.remoteResource.id, catalogConfig.url).href, existingUdataResource, axiosOptions)
   } else { // Add it
     const resource = {
       title: `${dataset.title} - Consultez les données`,
       description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
-      url: publication.publicationSite + 'datasets/' + dataset.id,
+      url: microTemplate(publication.publicationSite || '', { id: dataset.id, slug: dataset.slug }),
       type: 'main',
       filetype: 'remote',
       format: 'Page Web',
@@ -200,7 +201,7 @@ export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: a
     const res = await axios.post(new URL('api/1/datasets/' + publication.remoteDataset.id + '/resources/', catalogConfig.url).href, resource, axiosOptions)
     publication.remoteResource = {
       id: res.data.id,
-      title: res.data.title
+      title: res.data.title,
     }
   }
 
