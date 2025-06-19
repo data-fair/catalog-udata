@@ -1,23 +1,23 @@
-import type { Publication } from '@data-fair/lib-common-types/catalog/index.js'
+import type { Publication, PublishDatasetContext, DeletePublicationContext } from '@data-fair/lib-common-types/catalog/index.js'
 import type { UDataConfig } from '#types'
 import axios from '@data-fair/lib-node/axios.js'
 import { httpError } from '@data-fair/lib-utils/http-errors.js'
 import { microTemplate } from '@data-fair/lib-utils/micro-template.js'
 
-export const publishDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
-  if (publication.isResource) return addOrUpdateResource(catalogConfig, dataset, publication)
-  else return await createOrUpdateDataset(catalogConfig, dataset, publication)
+export const publishDataset = async (context: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
+  if (context.publication.isResource) return addOrUpdateResource(context)
+  else return await createOrUpdateDataset(context)
 }
 
-export const deleteDataset = async (catalogConfig: UDataConfig, datasetId: string, resourceId?: string) => {
+export const deleteDataset = async ({ catalogConfig, datasetId, resourceId }: DeletePublicationContext<UDataConfig>): Promise<void> => {
   if (resourceId) return await deleteUdataResource(catalogConfig, datasetId, resourceId)
   else await deleteUdataDataset(catalogConfig, datasetId)
 }
 
-export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
+export const createOrUpdateDataset = async ({ catalogConfig, dataset, publication, publicationSite }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
 
-  const datasetUrl = microTemplate(publication.publicationSite || '', { id: dataset.id, slug: dataset.slug })
+  const datasetUrl = microTemplate(publicationSite.datasetUrlTemplate || '', { id: dataset.id, slug: dataset.slug })
   const resources = []
   if (dataset.isMetaOnly) {
     resources.push({
@@ -55,7 +55,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
     resources.push({
       title: `Fichier ${originalFileFormat}`,
       description: `Téléchargez le fichier complet au format ${originalFileFormat}.`,
-      url: `${publication.publicationSite}/data-fair/api/v1/datasets/${dataset.id}/raw`,
+      url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/raw`,
       type: 'main',
       filetype: 'remote',
       filesize: dataset.originalFile.size,
@@ -67,7 +67,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
       resources.push({
         title: `Fichier ${fileFormat}`,
         description: `Téléchargez le fichier complet au format ${fileFormat}.`,
-        url: `${publication.publicationSite}/data-fair/api/v1/datasets/${dataset.id}/convert`,
+        url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/convert`,
         type: 'main',
         filetype: 'remote',
         filesize: dataset.file.size,
@@ -90,7 +90,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${publication.publicationSite}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publicationSite.url}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         filesize: attachment.size,
         mime: attachment.mimetype,
@@ -101,7 +101,7 @@ export const createOrUpdateDataset = async (catalogConfig: UDataConfig, dataset:
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${publication.publicationSite}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publicationSite.url}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         format: attachment.name.split('.').pop()
       })
@@ -174,7 +174,7 @@ export const deleteUdataDataset = async (catalogConfig: UDataConfig, datasetId: 
   }
 }
 
-export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: any, publication: Publication): Promise<Publication> => {
+export const addOrUpdateResource = async ({ catalogConfig, dataset, publication, publicationSite }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
   const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
   if (!publication.remoteDataset) throw httpError(400, 'Pas de jeu de données distant associé à cette publication')
   const udataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDataset.id, catalogConfig.url).href, axiosOptions)).data
@@ -185,13 +185,13 @@ export const addOrUpdateResource = async (catalogConfig: UDataConfig, dataset: a
   if (publication.remoteResource && existingUdataResource) { // Update it
     existingUdataResource.title = `${dataset.title} - Consultez les données`
     existingUdataResource.description = `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`
-    existingUdataResource.url = microTemplate(publication.publicationSite || '', { id: dataset.id, slug: dataset.slug })
+    existingUdataResource.url = microTemplate(publicationSite.datasetUrlTemplate || '', { id: dataset.id, slug: dataset.slug })
     await axios.put(new URL('api/1/datasets/' + publication.remoteDataset.id + '/resources/' + publication.remoteResource.id, catalogConfig.url).href, existingUdataResource, axiosOptions)
   } else { // Add it
     const resource = {
       title: `${dataset.title} - Consultez les données`,
       description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
-      url: microTemplate(publication.publicationSite || '', { id: dataset.id, slug: dataset.slug }),
+      url: microTemplate(publicationSite.url || '', { id: dataset.id, slug: dataset.slug }),
       type: 'main',
       filetype: 'remote',
       format: 'Page Web',

@@ -1,0 +1,209 @@
+import type { CatalogPlugin } from '@data-fair/lib-common-types/catalog/index.js'
+import { strict as assert } from 'node:assert'
+import { it, describe, before, beforeEach } from 'node:test'
+import fs from 'fs-extra'
+import dotenv from 'dotenv'
+import plugin from '../index.ts'
+
+// Load environment variables from .env file
+dotenv.config()
+
+// Import plugin and use default type like it's done in Catalogs
+const catalogPlugin: CatalogPlugin = plugin as CatalogPlugin
+
+/** Catalog configuration for testing purposes. */
+const catalogConfig = {
+  url: process.env.UDATA_URL || 'https://demo.data.gouv.fr',
+  apiKey: process.env.UDATA_API_KEY || (() => {
+    throw new Error('UDATA_API_KEY environment variable is required for tests')
+  })()
+}
+
+describe('catalog-udata', () => {
+  it('should list datasets as folders from root', async () => {
+    const res = await catalogPlugin.list({
+      catalogConfig,
+      params: { showAll: 'true' }
+    })
+
+    assert.ok(res.count >= 0, 'Expected 0 or more items in the root folder')
+    assert.ok(res.results.length >= 0)
+    if (res.results.length > 0) {
+      assert.equal(res.results[0].type, 'folder', 'Expected folders (datasets) in the root folder')
+    }
+
+    assert.equal(res.path.length, 0, 'Expected no path for root folder')
+  })
+
+  it('should list resources from a dataset (folder)', async () => {
+    // First get a dataset to test with
+    const rootRes = await catalogPlugin.list({
+      catalogConfig,
+      params: { showAll: 'true', size: 1, page: 1 }
+    })
+    assert.ok(rootRes.count >= 1, 'Expected 1 or more datasets in the root folder')
+    assert.equal(rootRes.results.length, 1, 'Expected only one dataset in the results array')
+
+    // List resources in the first dataset
+    const datasetId = rootRes.results[0].id
+    const res = await catalogPlugin.list({
+      catalogConfig,
+      params: { currentFolderId: datasetId }
+    })
+
+    assert.ok(res.count >= 1, 'Expected 1 or more resources in the dataset')
+    assert.ok(res.results.length >= 1)
+    assert.equal(res.results[0].type, 'resource', 'Expected resources in the dataset folder')
+
+    assert.equal(res.path.length, 1, 'Expected path to contain the current dataset')
+    assert.equal(res.path[0].id, datasetId)
+  })
+
+  it('should list resources with filters', async () => {
+    const res = await catalogPlugin.list({
+      catalogConfig,
+      params: {
+        showAll: 'true',
+        organization: '589596c188ee3877169b81a4' // Koumoul organization ID
+      }
+    })
+
+    assert.ok(res.count <= 500, 'Should not get all datasets, but only those from the Koumoul organization')
+    assert.ok(res.results.length >= 1, 'Should return at least one dataset from the Koumoul organization')
+  })
+
+  it('should get a resource', async () => {
+    // First get a dataset and its resources
+    const rootRes = await catalogPlugin.list({
+      catalogConfig,
+      params: { showAll: 'true', size: 1, page: 1 }
+    })
+
+    assert.ok(rootRes.count >= 1, 'Expected 1 or more datasets in the root folder')
+    assert.equal(rootRes.results.length, 1, 'Expected only one dataset in the results array')
+
+    // List resources in the first dataset
+    const datasetId = rootRes.results[0].id
+    const resourcesRes = await catalogPlugin.list({
+      catalogConfig,
+      params: { currentFolderId: datasetId }
+    })
+
+    assert.ok(resourcesRes.count >= 1, 'Expected 1 or more resources in the dataset')
+    assert.ok(resourcesRes.results.length >= 1, 'Expected at least one resource in the dataset')
+    assert.equal(resourcesRes.results[0].type, 'resource', 'Expected resources in the dataset folder')
+
+    const resourceId = resourcesRes.results[0].id
+    const resource = await catalogPlugin.getResource(catalogConfig, resourceId)
+    assert.ok(resource, 'The resource should exist')
+
+    assert.equal(resource.id, resourceId, 'Resource ID should match')
+    assert.ok(resource.title, 'Resource should have a title')
+    assert.equal(resource.type, 'resource', 'Expected resource type to be "resource"')
+  })
+
+  describe('should download a resource', async () => {
+    const tmpDir = './data/test/downloads'
+
+    // Ensure the temporary directory exists once for all tests
+    before(async () => await fs.ensureDir(tmpDir))
+
+    // Clear the temporary directory before each test
+    beforeEach(async () => await fs.emptyDir(tmpDir))
+
+    it('with correct params', async () => {
+      // First get a dataset and its resources
+      const rootRes = await catalogPlugin.list({
+        catalogConfig,
+        params: {
+          showAll: 'true',
+          size: 1,
+          page: 1,
+          organization: '589596c188ee3877169b81a4' // Koumoul organization ID in demo.data.gouv.fr
+        }
+      })
+
+      assert.ok(rootRes.count >= 1, 'Expected 1 or more datasets in the root folder')
+      assert.equal(rootRes.results.length, 1, 'Expected only one dataset in the results array')
+
+      const datasetId = rootRes.results[0].id
+      const resourcesRes = await catalogPlugin.list({
+        catalogConfig,
+        params: { currentFolderId: datasetId }
+      })
+
+      assert.ok(resourcesRes.count >= 1, 'Expected 1 or more resources in the dataset')
+
+      const resourceId = resourcesRes.results[0].id
+      const downloadUrl = await catalogPlugin.downloadResource({
+        catalogConfig,
+        resourceId,
+        importConfig: {}, // UData doesn't use importConfig
+        tmpDir
+      })
+
+      assert.ok(downloadUrl, 'Download URL should not be undefined')
+
+      // Check if the file exists
+      const fileExists = await fs.pathExists(downloadUrl)
+      assert.ok(fileExists, 'The downloaded file should exist')
+    })
+
+    it('should fail for resource not found', async () => {
+      const resourceId = 'non-existent-dataset:non-existent-resource'
+
+      await assert.rejects(
+        async () => {
+          await catalogPlugin.downloadResource({
+            catalogConfig,
+            resourceId,
+            importConfig: {},
+            tmpDir
+          })
+        },
+        /not found|does not exist|invalid/i,
+        'Should throw an error for non-existent resource'
+      )
+    })
+  })
+
+  let remoteDatasetId: string
+  it('should publish a dataset', async () => {
+    const dataset = {
+      id: 'test-dataset',
+      title: 'Test Dataset',
+      description: 'This is a test dataset',
+      slug: 'test-dataset',
+      public: false
+    }
+    const publication = {
+      isResource: false
+    }
+    const publicationSite = {
+      title: 'Test Site',
+      url: 'http://example.com',
+      datasetUrlTemplate: 'http://example.com/data-fair/{id}'
+    }
+
+    const result = await catalogPlugin.publishDataset({
+      catalogConfig,
+      dataset,
+      publication,
+      publicationSite
+    })
+    assert.ok(result, 'The publication should be successful')
+    assert.ok(result.remoteDataset, 'The returned publication should have a remote dataset')
+    assert.ok(result.remoteDataset.id, 'The returned publication should have a remote dataset with an ID')
+    assert.equal(result.isResource, publication.isResource, 'Publication type should not be changed')
+    remoteDatasetId = result.remoteDataset.id
+  })
+
+  it('should delete a dataset', async () => {
+    await catalogPlugin.deleteDataset({
+      catalogConfig,
+      datasetId: remoteDatasetId
+    })
+    // Since this is a test with demo API, we can't verify the deletion, but we can check that no error is thrown
+    assert.ok(true, 'Delete operation should not throw an error')
+  })
+})
