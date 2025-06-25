@@ -9,8 +9,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "url",
-    "apiKey"
+    "url"
   ],
   "properties": {
     "url": {
@@ -68,18 +67,22 @@
         "name": {
           "type": "string"
         },
-        "logo": {
+        "image_url": {
           "type": "string"
         }
       },
       "layout": {
         "getItems": {
-          "url": "${parent.data.url}/api/1/me",
-          "itemsResults": "data.organizations",
+          "url": "${parent.data.url}/api/1/organizations/suggest",
+          "itemsResults": "data",
           "itemTitle": "item.name",
-          "itemIcon": "item.logo",
-          "headers": {
-            "X-API-KEY": "parent.data.apiKey"
+          "itemIcon": "item.image_url",
+          "qSearchParam": "q"
+        },
+        "props": {
+          "placeholder": "Search...",
+          "x-i18n-placeholder": {
+            "fr": "Rechercher..."
           }
         }
       }
@@ -96,6 +99,10 @@
       "title": "Publication settings",
       "x-i18n-title": {
         "fr": "Paramètres de publication"
+      },
+      "if": {
+        "expr": "parent.data.apiKey",
+        "pure": false
       },
       "children": [
         "organization"

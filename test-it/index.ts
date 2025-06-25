@@ -14,6 +14,11 @@ const catalogPlugin: CatalogPlugin = plugin as CatalogPlugin
 /** Catalog configuration for testing purposes. */
 const catalogConfig = {
   url: process.env.UDATA_URL || 'https://demo.data.gouv.fr',
+  apiKey: '**************************************************'
+}
+
+/** Secrets for accessing the catalog API, including the API key. */
+const secrets = {
   apiKey: process.env.UDATA_API_KEY || (() => {
     throw new Error('UDATA_API_KEY environment variable is required for tests')
   })()
@@ -23,6 +28,7 @@ describe('catalog-udata', () => {
   it('should list datasets as folders from root', async () => {
     const res = await catalogPlugin.list({
       catalogConfig,
+      secrets,
       params: { showAll: 'true' }
     })
 
@@ -39,6 +45,7 @@ describe('catalog-udata', () => {
     // First get a dataset to test with
     const rootRes = await catalogPlugin.list({
       catalogConfig,
+      secrets,
       params: { showAll: 'true', size: 1, page: 1 }
     })
     assert.ok(rootRes.count >= 1, 'Expected 1 or more datasets in the root folder')
@@ -48,6 +55,7 @@ describe('catalog-udata', () => {
     const datasetId = rootRes.results[0].id
     const res = await catalogPlugin.list({
       catalogConfig,
+      secrets,
       params: { currentFolderId: datasetId }
     })
 
@@ -62,6 +70,7 @@ describe('catalog-udata', () => {
   it('should list resources with filters', async () => {
     const res = await catalogPlugin.list({
       catalogConfig,
+      secrets,
       params: {
         showAll: 'true',
         organization: '589596c188ee3877169b81a4' // Koumoul organization ID
@@ -76,6 +85,7 @@ describe('catalog-udata', () => {
     // First get a dataset and its resources
     const rootRes = await catalogPlugin.list({
       catalogConfig,
+      secrets,
       params: { showAll: 'true', size: 1, page: 1 }
     })
 
@@ -86,6 +96,7 @@ describe('catalog-udata', () => {
     const datasetId = rootRes.results[0].id
     const resourcesRes = await catalogPlugin.list({
       catalogConfig,
+      secrets,
       params: { currentFolderId: datasetId }
     })
 
@@ -94,7 +105,11 @@ describe('catalog-udata', () => {
     assert.equal(resourcesRes.results[0].type, 'resource', 'Expected resources in the dataset folder')
 
     const resourceId = resourcesRes.results[0].id
-    const resource = await catalogPlugin.getResource(catalogConfig, resourceId)
+    const resource = await catalogPlugin.getResource({
+      catalogConfig,
+      secrets,
+      resourceId
+    })
     assert.ok(resource, 'The resource should exist')
 
     assert.equal(resource.id, resourceId, 'Resource ID should match')
@@ -115,6 +130,7 @@ describe('catalog-udata', () => {
       // First get a dataset and its resources
       const rootRes = await catalogPlugin.list({
         catalogConfig,
+        secrets,
         params: {
           showAll: 'true',
           size: 1,
@@ -129,6 +145,7 @@ describe('catalog-udata', () => {
       const datasetId = rootRes.results[0].id
       const resourcesRes = await catalogPlugin.list({
         catalogConfig,
+        secrets,
         params: { currentFolderId: datasetId }
       })
 
@@ -137,6 +154,7 @@ describe('catalog-udata', () => {
       const resourceId = resourcesRes.results[0].id
       const downloadUrl = await catalogPlugin.downloadResource({
         catalogConfig,
+        secrets,
         resourceId,
         importConfig: {}, // UData doesn't use importConfig
         tmpDir
@@ -156,6 +174,7 @@ describe('catalog-udata', () => {
         async () => {
           await catalogPlugin.downloadResource({
             catalogConfig,
+            secrets,
             resourceId,
             importConfig: {},
             tmpDir
@@ -187,6 +206,7 @@ describe('catalog-udata', () => {
 
     const result = await catalogPlugin.publishDataset({
       catalogConfig,
+      secrets,
       dataset,
       publication,
       publicationSite
@@ -201,6 +221,7 @@ describe('catalog-udata', () => {
   it('should delete a dataset', async () => {
     await catalogPlugin.deleteDataset({
       catalogConfig,
+      secrets,
       datasetId: remoteDatasetId
     })
     // Since this is a test with demo API, we can't verify the deletion, but we can check that no error is thrown

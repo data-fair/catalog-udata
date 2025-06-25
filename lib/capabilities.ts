@@ -1,4 +1,4 @@
-export default [
+export const capabilities = [
   'import' as const,
   'search' as const,
   'pagination' as const,
@@ -6,3 +6,6 @@ export default [
   'publishDataset' as const,
   'deletePublication' as const,
 ]
+
+export type UDataCapabilities = typeof capabilities
+export default capabilities

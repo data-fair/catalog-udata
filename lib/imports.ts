@@ -1,16 +1,16 @@
-import type { ListContext, DownloadResourceContext, Folder, Resource } from '@data-fair/lib-common-types/catalog/index.js'
+import type { ListContext, DownloadResourceContext, Folder, Resource, GetResourceContext } from '@data-fair/lib-common-types/catalog/index.js'
 import type { UDataConfig } from '#types'
-import type capabilities from './capabilities.ts'
+import type { UDataCapabilities } from './capabilities.ts'
 
 import axios from '@data-fair/lib-node/axios.js'
 
-export const list = async ({ catalogConfig, params }: ListContext<UDataConfig, typeof capabilities>): Promise<{
+export const list = async ({ catalogConfig, secrets, params }: ListContext<UDataConfig, UDataCapabilities>): Promise<{
   count: number
   results: (Folder | Resource)[]
   path: Folder[]
 }> => {
   const axiosOptions: Record<string, any> = { headers: {}, params: {} }
-  if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
+  if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
   if (params.q) axiosOptions.params.q = params.q
 
   // Si currentFolderId est présent, on récupère les ressources du dataset
@@ -79,7 +79,7 @@ export const list = async ({ catalogConfig, params }: ListContext<UDataConfig, t
   }
 }
 
-export const getResource = async (catalogConfig: UDataConfig, resourceId: string): Promise<Resource | undefined> => {
+export const getResource = async ({ catalogConfig, secrets, resourceId }: GetResourceContext<UDataConfig>): Promise<Resource | undefined> => {
   // Décoder l'ID composite (format: "datasetId:resourceId")
   const parts = resourceId.split(':')
   if (parts.length !== 2) {
@@ -92,7 +92,7 @@ export const getResource = async (catalogConfig: UDataConfig, resourceId: string
   try {
     // Configuration axios avec API key si disponible
     const axiosOptions: Record<string, any> = { headers: {} }
-    if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
+    if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
 
     // Récupérer le dataset contenant la ressource
     const datasetResponse = await axios.get(
@@ -127,7 +127,7 @@ export const getResource = async (catalogConfig: UDataConfig, resourceId: string
   }
 }
 
-export const downloadResource = async ({ catalogConfig, resourceId, importConfig, tmpDir }: DownloadResourceContext<UDataConfig>): Promise<string | undefined> => {
+export const downloadResource = async ({ catalogConfig, secrets, resourceId, tmpDir }: DownloadResourceContext<UDataConfig>): Promise<string | undefined> => {
   // Décoder l'ID composite (format: "datasetId:resourceId")
   const parts = resourceId.split(':')
   if (parts.length !== 2) {
@@ -138,7 +138,7 @@ export const downloadResource = async ({ catalogConfig, resourceId, importConfig
 
   // Configuration axios avec API key si disponible
   const axiosOptions: Record<string, any> = { headers: {} }
-  if (catalogConfig.apiKey) axiosOptions.headers['X-API-KEY'] = catalogConfig.apiKey
+  if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
 
   // Récupérer le dataset contenant la ressource
   const datasetResponse = await axios.get(

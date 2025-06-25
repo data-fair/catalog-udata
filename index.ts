@@ -1,18 +1,22 @@
 import type { CatalogPlugin } from '@data-fair/lib-common-types/catalog/index.js'
 import { schema as configSchema, assertValid as assertConfigValid, type UDataConfig } from './types/config/index.ts'
 import listFiltersSchema from './lib/listFiltersSchema.ts'
-import capabilities from './lib/capabilities.ts'
+import { type UDataCapabilities, capabilities } from './lib/capabilities.ts'
 
-const plugin: CatalogPlugin<UDataConfig, typeof capabilities> = {
+const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
+  async prepare (context) {
+    const prepare = (await import('./lib/prepare.ts')).default
+    return prepare(context)
+  },
 
   async list (context) {
     const { list } = await import('./lib/imports.ts')
     return list(context)
   },
 
-  async getResource (catalogConfig, resourceId) {
+  async getResource (context) {
     const { getResource } = await import('./lib/imports.ts')
-    return getResource(catalogConfig, resourceId)
+    return getResource(context)
   },
 
   async downloadResource (context) {

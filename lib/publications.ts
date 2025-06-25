@@ -1,21 +1,24 @@
 import type { Publication, PublishDatasetContext, DeletePublicationContext } from '@data-fair/lib-common-types/catalog/index.js'
 import type { UDataConfig } from '#types'
+
 import axios from '@data-fair/lib-node/axios.js'
 import { httpError } from '@data-fair/lib-utils/http-errors.js'
 import { microTemplate } from '@data-fair/lib-utils/micro-template.js'
 
 export const publishDataset = async (context: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
+  if (!context.secrets.apiKey) throw httpError(400, 'Aucune clé d\'API fournie pour le catalogue')
   if (context.publication.isResource) return addOrUpdateResource(context)
   else return await createOrUpdateDataset(context)
 }
 
-export const deleteDataset = async ({ catalogConfig, datasetId, resourceId }: DeletePublicationContext<UDataConfig>): Promise<void> => {
-  if (resourceId) return await deleteUdataResource(catalogConfig, datasetId, resourceId)
-  else await deleteUdataDataset(catalogConfig, datasetId)
+export const deleteDataset = async ({ catalogConfig, secrets, datasetId, resourceId }: DeletePublicationContext<UDataConfig>): Promise<void> => {
+  if (!secrets.apiKey) throw httpError(400, 'Aucune clé d\'API fournie pour le catalogue')
+  if (resourceId) return await deleteUdataResource(catalogConfig, secrets, datasetId, resourceId)
+  else await deleteUdataDataset(catalogConfig, secrets, datasetId)
 }
 
-export const createOrUpdateDataset = async ({ catalogConfig, dataset, publication, publicationSite }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
-  const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
+const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publication, publicationSite }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
+  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
 
   const datasetUrl = microTemplate(publicationSite.datasetUrlTemplate || '', { id: dataset.id, slug: dataset.slug })
   const resources = []
@@ -166,16 +169,16 @@ export const createOrUpdateDataset = async ({ catalogConfig, dataset, publicatio
   return publication
 }
 
-export const deleteUdataDataset = async (catalogConfig: UDataConfig, datasetId: string) => {
+const deleteUdataDataset = async (catalogConfig: UDataConfig, secrets: Record<string, string>, datasetId: string) => {
   try {
-    await axios.delete(new URL(`api/1/datasets/${datasetId}/`, catalogConfig.url).href, { headers: { 'X-API-KEY': catalogConfig.apiKey } })
+    await axios.delete(new URL(`api/1/datasets/${datasetId}/`, catalogConfig.url).href, { headers: { 'X-API-KEY': secrets.apiKey } })
   } catch (e: any) {
     if (![404, 410].includes(e.status)) throw httpError(500, `Erreur lors de la suppression du jeu de données sur ${catalogConfig.url} : ${e.message}`)
   }
 }
 
-export const addOrUpdateResource = async ({ catalogConfig, dataset, publication, publicationSite }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
-  const axiosOptions = { headers: { 'X-API-KEY': catalogConfig.apiKey } }
+const addOrUpdateResource = async ({ catalogConfig, secrets, dataset, publication, publicationSite }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
+  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
   if (!publication.remoteDataset) throw httpError(400, 'Pas de jeu de données distant associé à cette publication')
   const udataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteDataset.id, catalogConfig.url).href, axiosOptions)).data
   if (!udataDataset) throw httpError(404, 'Jeu de données distant introuvable')
@@ -208,9 +211,9 @@ export const addOrUpdateResource = async ({ catalogConfig, dataset, publication,
   return publication
 }
 
-export const deleteUdataResource = async (catalogConfig: UDataConfig, datasetId: string, resourceId: string) => {
+const deleteUdataResource = async (catalogConfig: UDataConfig, secrets: Record<string, string>, datasetId: string, resourceId: string) => {
   try {
-    await axios.delete(new URL(`api/1/datasets/${datasetId}/resources/${resourceId}`, catalogConfig.url).href, { headers: { 'X-API-KEY': catalogConfig.apiKey } })
+    await axios.delete(new URL(`api/1/datasets/${datasetId}/resources/${resourceId}`, catalogConfig.url).href, { headers: { 'X-API-KEY': secrets.apiKey } })
   } catch (e: any) {
     if (![404, 410].includes(e.status)) throw httpError(500, `Erreur lors de la suppression de la ressource sur ${catalogConfig.url} : ${e.message}`)
   }
