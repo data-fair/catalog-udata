@@ -38,9 +38,20 @@ export default {
       'x-i18n-title': {
         fr: 'Voir tous les jeux de données'
       },
+      default: true,
       layout: {
-        cols: 4,
-        comp: 'switch'
+        switch: [
+          {
+            if: '!context.catalogConfig.apiKey',
+            readOnly: true,
+            cols: 4,
+            comp: 'switch'
+          },
+          {
+            cols: 4,
+            comp: 'switch'
+          }
+        ]
       }
     }
   }

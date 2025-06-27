@@ -1,1 +1,1 @@
-export type { UDataConfig } from './config/index.ts'
+export type { UDataConfig } from './catalogConfig/index.ts'
