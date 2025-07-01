@@ -1,4 +1,4 @@
-import type { Publication, PublishDatasetContext, DeletePublicationContext } from '@data-fair/lib-common-types/catalog/index.js'
+import type { Publication, PublishDatasetContext, DeletePublicationContext } from '@data-fair/types-catalogs'
 import type { UDataConfig } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'

@@ -1,4 +1,4 @@
-import type { CatalogPlugin } from '@data-fair/lib-common-types/catalog/index.js'
+import type CatalogPlugin from '@data-fair/types-catalogs'
 import { strict as assert } from 'node:assert'
 import { it, describe, before, beforeEach } from 'node:test'
 import fs from 'fs-extra'

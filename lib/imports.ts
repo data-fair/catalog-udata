@@ -1,4 +1,4 @@
-import type { CatalogPlugin, ListContext, Folder, Resource, GetResourceContext } from '@data-fair/lib-common-types/catalog/index.js'
+import type { CatalogPlugin, ListContext, Folder, Resource, GetResourceContext } from '@data-fair/types-catalogs'
 import type { UDataConfig } from '#types'
 import type { UDataCapabilities } from './capabilities.ts'
 
@@ -53,7 +53,7 @@ export const list = async ({ catalogConfig, secrets, params }: ListContext<UData
   let datasets
   let count
   if (params.showAll === 'true') {
-    if (params.size && params.page) axiosOptions.params = { page: params.page, page_size: params.size }
+    if (params.size && params.page) axiosOptions.params = { ...axiosOptions.params, page: params.page, page_size: params.size }
     axiosOptions.params.organization = params.organization
     const result = (await axios.get(new URL('api/1/datasets/', catalogConfig.url).href, axiosOptions)).data
     datasets = result.data
@@ -147,17 +147,21 @@ export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir }
     writeStream.on('error', (error) => reject(error))
   })
 
+  const udataLicenses: { id: string, title: string, url: string }[] = (await axios.get(new URL('api/1/datasets/licenses', catalogConfig.url).href, axiosOptions)).data
+  const udataLicense = udataLicenses.find((l: any) => l.id === udataResource.license)
+  const license = udataLicense ? { title: udataLicense.title, href: udataLicense.url } : undefined
+
   const resource: Resource = {
     id: resourceId,
     title: udataResource.title,
     description: dataset.description,
     filePath,
-    format: udataResource.format || 'unknown',
-    frequency: udataResource.frequency || '',
-    license: udataResource.license || '',
-    keywords: udataResource.keywords || [],
+    format: udataResource.format,
+    frequency: udataResource.frequency,
+    license,
+    keywords: udataResource.tags,
     mimeType: udataResource.mime,
-    origin: udataResource.url,
+    origin: dataset.page,
     size: udataResource.filesize
   }
   return resource

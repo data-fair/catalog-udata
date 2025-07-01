@@ -1,4 +1,4 @@
-import type { CatalogPlugin } from '@data-fair/lib-common-types/catalog/index.js'
+import type CatalogPlugin from '@data-fair/types-catalogs'
 import { schema as configSchema, assertValid as assertConfigValid, type UDataConfig } from './types/catalogConfig/index.ts'
 import listFiltersSchema from './lib/listFiltersSchema.ts'
 import { type UDataCapabilities, capabilities } from './lib/capabilities.ts'

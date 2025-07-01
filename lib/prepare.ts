@@ -1,4 +1,4 @@
-import type { PrepareContext } from '@data-fair/lib-common-types/catalog/index.js'
+import type { PrepareContext } from '@data-fair/types-catalogs'
 import type { UDataCapabilities } from './capabilities.ts'
 import type { UDataConfig } from '#types'
 
