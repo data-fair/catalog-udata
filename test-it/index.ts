@@ -81,43 +81,7 @@ describe('catalog-udata', () => {
     assert.ok(res.results.length >= 1, 'Should return at least one dataset from the Koumoul organization')
   })
 
-  it('should get a resource', async () => {
-    // First get a dataset and its resources
-    const rootRes = await catalogPlugin.list({
-      catalogConfig,
-      secrets,
-      params: { showAll: 'true', size: 1, page: 1 }
-    })
-
-    assert.ok(rootRes.count >= 1, 'Expected 1 or more datasets in the root folder')
-    assert.equal(rootRes.results.length, 1, 'Expected only one dataset in the results array')
-
-    // List resources in the first dataset
-    const datasetId = rootRes.results[0].id
-    const resourcesRes = await catalogPlugin.list({
-      catalogConfig,
-      secrets,
-      params: { currentFolderId: datasetId }
-    })
-
-    assert.ok(resourcesRes.count >= 1, 'Expected 1 or more resources in the dataset')
-    assert.ok(resourcesRes.results.length >= 1, 'Expected at least one resource in the dataset')
-    assert.equal(resourcesRes.results[0].type, 'resource', 'Expected resources in the dataset folder')
-
-    const resourceId = resourcesRes.results[0].id
-    const resource = await catalogPlugin.getResource({
-      catalogConfig,
-      secrets,
-      resourceId
-    })
-    assert.ok(resource, 'The resource should exist')
-
-    assert.equal(resource.id, resourceId, 'Resource ID should match')
-    assert.ok(resource.title, 'Resource should have a title')
-    assert.equal(resource.type, 'resource', 'Expected resource type to be "resource"')
-  })
-
-  describe('should download a resource', async () => {
+  describe('should get and download a resource', async () => {
     const tmpDir = './data/test/downloads'
 
     // Ensure the temporary directory exists once for all tests
@@ -152,7 +116,7 @@ describe('catalog-udata', () => {
       assert.ok(resourcesRes.count >= 1, 'Expected 1 or more resources in the dataset')
 
       const resourceId = resourcesRes.results[0].id
-      const downloadUrl = await catalogPlugin.downloadResource({
+      const resource = await catalogPlugin.getResource({
         catalogConfig,
         secrets,
         resourceId,
@@ -160,10 +124,13 @@ describe('catalog-udata', () => {
         tmpDir
       })
 
-      assert.ok(downloadUrl, 'Download URL should not be undefined')
+      assert.ok(resource, 'The resource should exist')
+      assert.equal(resource.id, resourceId, 'Resource ID should match')
+      assert.ok(resource.title, 'Resource should have a title')
+      assert.ok(resource.filePath, 'Download file path should not be undefined')
 
       // Check if the file exists
-      const fileExists = await fs.pathExists(downloadUrl)
+      const fileExists = await fs.pathExists(resource.filePath)
       assert.ok(fileExists, 'The downloaded file should exist')
     })
 
@@ -172,7 +139,7 @@ describe('catalog-udata', () => {
 
       await assert.rejects(
         async () => {
-          await catalogPlugin.downloadResource({
+          await catalogPlugin.getResource({
             catalogConfig,
             secrets,
             resourceId,

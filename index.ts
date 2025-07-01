@@ -19,11 +19,6 @@ const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
     return getResource(context)
   },
 
-  async downloadResource (context) {
-    const { downloadResource } = await import('./lib/imports.ts')
-    return downloadResource(context)
-  },
-
   async publishDataset (context) {
     const { publishDataset } = await import('./lib/publications.ts')
     return publishDataset(context)

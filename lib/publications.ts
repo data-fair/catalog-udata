@@ -194,7 +194,7 @@ const addOrUpdateResource = async ({ catalogConfig, secrets, dataset, publicatio
     const resource = {
       title: `${dataset.title} - Consultez les données`,
       description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
-      url: microTemplate(publicationSite.url || '', { id: dataset.id, slug: dataset.slug }),
+      url: microTemplate(publicationSite.datasetUrlTemplate || '', { id: dataset.id, slug: dataset.slug }),
       type: 'main',
       filetype: 'remote',
       format: 'Page Web',
