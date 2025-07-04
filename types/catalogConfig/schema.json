@@ -35,9 +35,9 @@
       "x-i18n-title": {
         "fr": "Clé API"
       },
-      "description": "This key is to be configured in your profile on the catalog.",
+      "description": "This key is to be configured on your profile in the remote catalog. Example link to your data.gouv.fr profile: https://data.gouv.fr/admin/me/profile",
       "x-i18n-description": {
-        "fr": "Cette clé est à configurer dans votre profil sur le catalogue."
+        "fr": "Cette clé est à configurer sur votre profil du catalogue distant. Example de lien vers votre profil data.gouv.fr : https://data.gouv.fr/admin/me/profile"
       },
       "layout": {
         "props": {

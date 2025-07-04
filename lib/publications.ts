@@ -204,8 +204,9 @@ const addOrUpdateResource = async ({ catalogConfig, secrets, dataset, publicatio
     const res = await axios.post(new URL('api/1/datasets/' + publication.remoteDataset.id + '/resources/', catalogConfig.url).href, resource, axiosOptions)
     publication.remoteResource = {
       id: res.data.id,
-      title: res.data.title,
+      title: res.data.title
     }
+    publication.remoteDataset.url = udataDataset.page
   }
 
   return publication

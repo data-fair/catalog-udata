@@ -3,7 +3,6 @@ import type { UDataCapabilities } from './capabilities.ts'
 import type { UDataConfig } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'
-import { httpError } from '@data-fair/lib-utils/http-errors.js'
 
 export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<UDataConfig, UDataCapabilities>) => {
   // Manage secrets
@@ -27,24 +26,21 @@ export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<U
 
   // Check if the APIkey is valid by getting the user info
   if (secrets?.apiKey) {
+    let user
     try {
-      const user = (await axios.get(`${catalogConfig.url}/api/1/me`, {
+      user = (await axios.get(`${catalogConfig.url}/api/1/me`, {
         headers: {
           'X-API-KEY': secrets.apiKey
         }
       })).data
-
-      // If they are an organization, check if the user has the right on this organization
-      if (catalogConfig.organization?.id) {
-        if (!user.organizations || !Array.isArray(user.organizations)) throw httpError(403, 'User has no organizations')
-        if (!user.organizations.some((org: any) => org.id === catalogConfig.organization!.id)) {
-          throw httpError(403, `User does not have access to organization ${catalogConfig.organization.id}`)
-        }
-      }
     } catch (error: any) {
-      console.log(error)
-      if (error.status === 401) throw httpError(401, 'Invalid API key')
-      throw httpError(error.status || 500, `API validation failed: ${error.message || 'Unknown error'}`)
+      if (error.status === 401) throw new Error('Invalid API key')
+      throw new Error(`UData validation failed: ${error.message || 'Unknown error'}`)
+    }
+
+    // If they are an organization, check if the user has the right on this organization
+    if (catalogConfig.organization?.id && !user.organizations.some((org: any) => org.id === catalogConfig.organization!.id)) {
+      throw new Error(`User does not have access to organization ${catalogConfig.organization.name}`)
     }
   }
 
