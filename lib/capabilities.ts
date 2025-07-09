@@ -1,11 +1,13 @@
+import type { Capability } from '@data-fair/types-catalogs'
+
 export const capabilities = [
-  'import' as const,
-  'search' as const,
-  'pagination' as const,
-  'additionalFilters' as const,
-  'publishDataset' as const,
-  'deletePublication' as const,
-]
+  'import',
+  'search',
+  'pagination',
+  'additionalFilters',
+  'publishDataset',
+  'deletePublication',
+] satisfies Capability[]
 
 export type UDataCapabilities = typeof capabilities
 export default capabilities

@@ -100,10 +100,7 @@
       "x-i18n-title": {
         "fr": "Paramètres de publication"
       },
-      "if": {
-        "expr": "parent.data.apiKey",
-        "pure": false
-      },
+      "if": "parent.data.apiKey",
       "children": [
         "organization"
       ]

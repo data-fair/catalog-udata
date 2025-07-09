@@ -30,7 +30,7 @@ export const list = async ({ catalogConfig, secrets, params }: ListContext<UData
       type: 'resource' as const,
       description: dataset.description,
       format: udataResource.format || 'unknown',
-      origin: udataResource.url,
+      origin: dataset.page,
       mimeType: udataResource.mime,
       size: udataResource.filesize
     } as ResourceList))
