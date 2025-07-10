@@ -1,5 +1,5 @@
 import type CatalogPlugin from '@data-fair/types-catalogs'
-import { schema as configSchema, assertValid as assertConfigValid, type UDataConfig } from './types/catalogConfig/index.ts'
+import { importConfigSchema, configSchema, assertConfigValid, type UDataConfig } from '#types'
 import listFiltersSchema from './lib/listFiltersSchema.ts'
 import { type UDataCapabilities, capabilities } from './lib/capabilities.ts'
 
@@ -40,6 +40,7 @@ const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
     capabilities
   },
 
+  importConfigSchema,
   listFiltersSchema,
   configSchema,
   assertConfigValid

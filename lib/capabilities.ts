@@ -5,6 +5,7 @@ export const capabilities = [
   'search',
   'pagination',
   'additionalFilters',
+  'importConfig',
   'publication'
 ] satisfies Capability[]
 

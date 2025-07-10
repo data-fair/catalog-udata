@@ -9,9 +9,9 @@ export const listResources = async ({ catalogConfig, secrets, params }: ListReso
   if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
   if (params.q) axiosOptions.params.q = params.q
 
-  // Si currentFolderId est présent, on récupère les ressources du dataset
+  // If currentFolderId is present, we retrieve the resources of the dataset
   if (params.currentFolderId) {
-    // Récupérer le dataset spécifique
+    // Get the specific dataset
     const datasetResponse = await axios.get(new URL(`api/1/datasets/${params.currentFolderId}`, catalogConfig.url).href, axiosOptions)
     const dataset = datasetResponse.data
 
@@ -23,7 +23,7 @@ export const listResources = async ({ catalogConfig, secrets, params }: ListReso
         type: 'resource'
       }
 
-    // Convertir les ressources du dataset en format ResourceList
+    // Convert the dataset resources to ResourceList format
     const resources = (dataset.resources || []).map((udataResource: any) => ({
       id: `${dataset.id}:${udataResource.id}`,
       title: udataResource.title,
@@ -35,7 +35,7 @@ export const listResources = async ({ catalogConfig, secrets, params }: ListReso
       size: udataResource.filesize
     } as ResourceList))
 
-    // Construire le path avec le folder du dataset
+    // Build the path with the dataset folder
     const path: Folder[] = [{
       id: dataset.id,
       title: dataset.title,
@@ -49,7 +49,7 @@ export const listResources = async ({ catalogConfig, secrets, params }: ListReso
     }
   }
 
-  // Si pas de currentFolderId, on liste les datasets comme folders (niveau racine)
+  // If no currentFolderId, we list datasets as folders (root level)
   let datasets
   let count
   if (params.showAll === 'true') {
@@ -69,7 +69,7 @@ export const listResources = async ({ catalogConfig, secrets, params }: ListReso
     }
   }
 
-  // Convertir les datasets en folders
+  // Convert datasets to folders
   const folders: Folder[] = datasets.map((dataset: any) => ({
     id: dataset.id,
     title: dataset.title,
@@ -79,40 +79,43 @@ export const listResources = async ({ catalogConfig, secrets, params }: ListReso
   return {
     count,
     results: folders,
-    path: [] // Path vide pour le niveau racine
+    path: [] // Empty path for root level
   }
 }
 
-export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir }: GetResourceContext<UDataConfig>): ReturnType<CatalogPlugin['getResource']> => {
-  // Décoder l'ID composite (format: "datasetId:resourceId")
+export const getResource = async ({ catalogConfig, secrets, importConfig, resourceId, tmpDir, log }: GetResourceContext<UDataConfig>): ReturnType<CatalogPlugin['getResource']> => {
+  // Decode the composite ID (format: "datasetId:resourceId")
   const parts = resourceId.split(':')
   if (parts.length !== 2) {
-    throw new Error(`Format d'ID de ressource invalide: ${resourceId}. Attendu: "datasetId:resourceId"`)
+    throw new Error(`Invalid resource ID format: ${resourceId}. Expected: "datasetId:resourceId"`)
   }
   const [datasetId, udataResourceId] = parts
+  await log.step('Retrieving resource information')
+  await log.info(`datasetId=${datasetId}, resourceId=${udataResourceId}`)
 
-  // Configuration axios avec API key si disponible
+  // Axios configuration with API key if available
   const axiosOptions: Record<string, any> = { headers: {} }
   if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
 
-  // Récupérer le dataset contenant la ressource
-  const datasetResponse = await axios.get(
+  // Get the dataset containing the resource
+  const dataset = (await axios.get(
     new URL(`api/1/datasets/${datasetId}`, catalogConfig.url).href,
     axiosOptions
-  )
-  const dataset = datasetResponse.data
+  )).data
+  await log.info(`Dataset title: ${dataset.title}`)
 
-  // Trouver la ressource spécifique dans le dataset
+  // Find the specific resource in the dataset
   const udataResource = dataset.resources?.find((r: any) => r.id === udataResourceId)
   if (!udataResource) {
-    throw new Error(`Ressource ${udataResourceId} non trouvée dans le dataset ${datasetId}`)
+    throw new Error(`Resource ${udataResourceId} not found in dataset ${datasetId}`)
   }
+  await log.info(`Resource title: ${udataResource.title}`)
 
-  if (!udataResource.url) {
-    throw new Error(`URL manquante pour la ressource ${udataResourceId}`)
-  }
+  if (!udataResource.url) { throw new Error(`Resource ${udataResourceId} has no download link`) }
+  await log.info(`Download URL: ${udataResource.url}`)
 
-  // Télécharger la ressource
+  await log.step('Downloading the file')
+  // Download the resource
   const fs = await import('node:fs')
   const path = await import('path')
 
@@ -120,7 +123,7 @@ export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir }
     responseType: 'stream'
   })
 
-  // Déterminer l'extension du fichier à partir de l'URL ou du Content-Type
+  // Determine the file extension from the URL or Content-Type
   const urlPath = new URL(udataResource.url).pathname
   let extension = path.extname(urlPath) || '.dat'
   if (!extension || extension === '.dat') {
@@ -131,30 +134,42 @@ export const getResource = async ({ catalogConfig, secrets, resourceId, tmpDir }
     else if (contentType?.includes('excel')) extension = '.xlsx'
     else if (contentType?.includes('zip')) extension = '.zip'
   }
+  await log.info(`File extension determined: ${extension}`)
 
-  // Créer un nom de fichier
+  // Create a filename
   const resourceTitle = udataResource.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'resource'
   const fileName = `${resourceTitle}${extension}`
   const filePath = path.join(tmpDir, fileName)
+  await log.info(`Downloading resource to ${fileName}`)
 
-  // Créer le stream d'écriture
+  // Create write stream
   const writeStream = fs.createWriteStream(filePath)
   response.data.pipe(writeStream)
 
-  // Retourner une promesse qui se résout avec le chemin du fichier
+  // Return a promise that resolves with the file path
   await new Promise((resolve, reject) => {
     writeStream.on('finish', () => resolve(filePath))
     writeStream.on('error', (error) => reject(error))
   })
+  await log.info(`Resource ${udataResource.title} downloaded successfully!`)
+
+  await log.step('Preparing the dataset')
+
+  const title = importConfig.useDatasetTitle ? dataset.title : udataResource.title
+  const description = importConfig.useDatasetDescription ? dataset.description : udataResource.description
+  await log.info(`Dataset title from ${importConfig.useDatasetTitle ? 'remote dataset' : 'remote resource'}: ${title}`)
+  await log.info(`Dataset description from ${importConfig.useDatasetDescription ? 'remote dataset' : 'remote resource'}: ${description?.substring(0, 100)}${description?.length > 100 ? '...' : ''}`)
 
   const udataLicenses: { id: string, title: string, url: string }[] = (await axios.get(new URL('api/1/datasets/licenses', catalogConfig.url).href, axiosOptions)).data
   const udataLicense = udataLicenses.find((l: any) => l.id === udataResource.license)
   const license = udataLicense ? { title: udataLicense.title, href: udataLicense.url } : undefined
+  if (license) await log.info(`License found: ${license.title}`)
+  else await log.warning('No license specified for this resource')
 
   const resource: Resource = {
     id: resourceId,
-    title: udataResource.title,
-    description: dataset.description,
+    title: importConfig.useDatasetTitle ? dataset.title : udataResource.title,
+    description: importConfig.useDatasetDescription ? dataset.description : udataResource.description,
     filePath,
     format: udataResource.format,
     frequency: udataResource.frequency,

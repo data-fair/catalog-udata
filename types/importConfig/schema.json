@@ -1,0 +1,46 @@
+{
+  "$id": "https://github.com/data-fair/catalog-udata/import-config",
+  "x-exports": [
+    "schema"
+  ],
+  "title": "ImportConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "useDatasetTitle": {
+      "title": "Use remote dataset title",
+      "x-i18n-title": {
+        "fr": "Utiliser le titre du jeu de données distant"
+      },
+      "description": "If enabled, the imported dataset will use the title of the remote dataset instead of the title of the remote distribution.",
+      "x-i18n-description": {
+        "fr": "Si activé, le jeu de données importé utilisera le titre du jeu de données distant au lieu du titre de la distribution distante."
+      },
+      "type": "boolean",
+      "default": true,
+      "layout": {
+        "comp": "switch",
+        "cols": 6
+      }
+    },
+    "useDatasetDescription": {
+      "title": "Use remote dataset description",
+      "x-i18n-title": {
+        "fr": "Utiliser la description du jeu de données distant"
+      },
+      "description": "If enabled, the imported dataset will use the description of the remote dataset instead of the description of the remote distribution.",
+      "x-i18n-description": {
+        "fr": "Si activé, le jeu de données importé utilisera la description du jeu de données distant au lieu de la description de la distribution distante."
+      },
+      "type": "boolean",
+      "default": true,
+      "layout": {
+        "comp": "switch",
+        "cols": 6
+      }
+    }
+  },
+  "layout": {
+    "title": null
+  }
+}
