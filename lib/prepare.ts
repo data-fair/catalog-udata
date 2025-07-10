@@ -21,8 +21,8 @@ export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<U
 
   // Manage capabilities
   if (secrets?.apiKey) {
-    if (!capabilities.includes('publishDataset')) capabilities.push('publishDataset')
-  } else capabilities = capabilities.filter(c => c !== 'publishDataset')
+    if (!capabilities.includes('publication')) capabilities.push('publication')
+  } else capabilities = capabilities.filter(c => c !== 'publication')
 
   // Check if the APIkey is valid by getting the user info
   if (secrets?.apiKey) {

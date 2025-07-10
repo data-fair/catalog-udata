@@ -5,8 +5,7 @@ export const capabilities = [
   'search',
   'pagination',
   'additionalFilters',
-  'publishDataset',
-  'deletePublication',
+  'publication'
 ] satisfies Capability[]
 
 export type UDataCapabilities = typeof capabilities

@@ -3,13 +3,14 @@ import { strict as assert } from 'node:assert'
 import { it, describe, before, beforeEach } from 'node:test'
 import fs from 'fs-extra'
 import dotenv from 'dotenv'
+import { logFunctions } from './test-utils.ts'
+
+// Import plugin and use default type like it's done in Catalogs
 import plugin from '../index.ts'
+const catalogPlugin: CatalogPlugin = plugin as CatalogPlugin
 
 // Load environment variables from .env file
 dotenv.config()
-
-// Import plugin and use default type like it's done in Catalogs
-const catalogPlugin: CatalogPlugin = plugin as CatalogPlugin
 
 /** Catalog configuration for testing purposes. */
 const catalogConfig = {
@@ -26,7 +27,7 @@ const secrets = {
 
 describe('catalog-udata', () => {
   it('should list datasets as folders from root', async () => {
-    const res = await catalogPlugin.list({
+    const res = await catalogPlugin.listResources({
       catalogConfig,
       secrets,
       params: { showAll: 'true' }
@@ -43,7 +44,7 @@ describe('catalog-udata', () => {
 
   it('should list resources from a dataset (folder)', async () => {
     // First get a dataset to test with
-    const rootRes = await catalogPlugin.list({
+    const rootRes = await catalogPlugin.listResources({
       catalogConfig,
       secrets,
       params: { showAll: 'true', size: 1, page: 1 }
@@ -53,7 +54,7 @@ describe('catalog-udata', () => {
 
     // List resources in the first dataset
     const datasetId = rootRes.results[0].id
-    const res = await catalogPlugin.list({
+    const res = await catalogPlugin.listResources({
       catalogConfig,
       secrets,
       params: { currentFolderId: datasetId }
@@ -68,7 +69,7 @@ describe('catalog-udata', () => {
   })
 
   it('should list resources with filters', async () => {
-    const res = await catalogPlugin.list({
+    const res = await catalogPlugin.listResources({
       catalogConfig,
       secrets,
       params: {
@@ -92,7 +93,7 @@ describe('catalog-udata', () => {
 
     it('with correct params', async () => {
       // First get a dataset and its resources
-      const rootRes = await catalogPlugin.list({
+      const rootRes = await catalogPlugin.listResources({
         catalogConfig,
         secrets,
         params: {
@@ -107,7 +108,7 @@ describe('catalog-udata', () => {
       assert.equal(rootRes.results.length, 1, 'Expected only one dataset in the results array')
 
       const datasetId = rootRes.results[0].id
-      const resourcesRes = await catalogPlugin.list({
+      const resourcesRes = await catalogPlugin.listResources({
         catalogConfig,
         secrets,
         params: { currentFolderId: datasetId }
@@ -121,7 +122,8 @@ describe('catalog-udata', () => {
         secrets,
         resourceId,
         importConfig: {}, // UData doesn't use importConfig
-        tmpDir
+        tmpDir,
+        log: logFunctions
       })
 
       assert.ok(resource, 'The resource should exist')
@@ -144,7 +146,8 @@ describe('catalog-udata', () => {
             secrets,
             resourceId,
             importConfig: {},
-            tmpDir
+            tmpDir,
+            log: logFunctions
           })
         },
         /not found|does not exist|invalid/i,
@@ -176,7 +179,8 @@ describe('catalog-udata', () => {
       secrets,
       dataset,
       publication,
-      publicationSite
+      publicationSite,
+      log: logFunctions
     })
     assert.ok(result, 'The publication should be successful')
     assert.ok(result.remoteDataset, 'The returned publication should have a remote dataset')
@@ -189,7 +193,8 @@ describe('catalog-udata', () => {
     await catalogPlugin.deleteDataset({
       catalogConfig,
       secrets,
-      datasetId: remoteDatasetId
+      datasetId: remoteDatasetId,
+      log: logFunctions
     })
     // Since this is a test with demo API, we can't verify the deletion, but we can check that no error is thrown
     assert.ok(true, 'Delete operation should not throw an error')

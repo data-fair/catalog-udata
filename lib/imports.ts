@@ -1,10 +1,10 @@
-import type { CatalogPlugin, ListContext, Folder, Resource, GetResourceContext } from '@data-fair/types-catalogs'
+import type { CatalogPlugin, ListResourcesContext, Folder, Resource, GetResourceContext } from '@data-fair/types-catalogs'
 import type { UDataConfig } from '#types'
 import type { UDataCapabilities } from './capabilities.ts'
 
 import axios from '@data-fair/lib-node/axios.js'
 
-export const list = async ({ catalogConfig, secrets, params }: ListContext<UDataConfig, UDataCapabilities>): ReturnType<CatalogPlugin['list']> => {
+export const listResources = async ({ catalogConfig, secrets, params }: ListResourcesContext<UDataConfig, UDataCapabilities>): ReturnType<CatalogPlugin['listResources']> => {
   const axiosOptions: Record<string, any> = { headers: {}, params: {} }
   if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
   if (params.q) axiosOptions.params.q = params.q

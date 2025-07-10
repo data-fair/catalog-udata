@@ -9,14 +9,19 @@ const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
     return prepare(context)
   },
 
-  async list (context) {
-    const { list } = await import('./lib/imports.ts')
-    return list(context)
+  async listResources (context) {
+    const { listResources } = await import('./lib/imports.ts')
+    return listResources(context)
   },
 
   async getResource (context) {
     const { getResource } = await import('./lib/imports.ts')
     return getResource(context)
+  },
+
+  async listDatasets (context) {
+    const { listDatasets } = await import('./lib/publications.ts')
+    return listDatasets(context)
   },
 
   async publishDataset (context) {
