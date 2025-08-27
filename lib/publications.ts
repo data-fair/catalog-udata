@@ -126,7 +126,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${publicationSite.url}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         filesize: attachment.size,
         mime: attachment.mimetype,
@@ -138,7 +138,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${publicationSite.url}/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         format: attachment.name.split('.').pop()
       })
