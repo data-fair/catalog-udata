@@ -25,7 +25,7 @@
         "fr": "L'URL doit commencer par http:// ou https:// et ne pas se terminer par `/`."
       },
       "examples": [
-        "https://data.gouv.fr",
+        "https://www.data.gouv.fr",
         "https://demo.data.gouv.fr"
       ]
     },
@@ -73,7 +73,7 @@
       },
       "layout": {
         "getItems": {
-          "url": "${parent.data.url}/api/1/organizations/suggest",
+          "url": "${parent.data.url}/api/1/organizations/suggest/",
           "itemsResults": "data",
           "itemTitle": "item.name",
           "itemIcon": "item.image_url",
