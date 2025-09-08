@@ -1,7 +1,8 @@
 import type CatalogPlugin from '@data-fair/types-catalogs'
 import { importConfigSchema, configSchema, assertConfigValid, type UDataConfig } from '#types'
-import listFiltersSchema from './lib/listFiltersSchema.ts'
 import { type UDataCapabilities, capabilities } from './lib/capabilities.ts'
+import importFiltersSchema from './lib/importFiltersSchema.ts'
+import i18n from './lib/i18n.ts'
 
 const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
   async prepare (context) {
@@ -9,9 +10,9 @@ const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
     return prepare(context)
   },
 
-  async listResources (context) {
-    const { listResources } = await import('./lib/imports.ts')
-    return listResources(context)
+  async list (context) {
+    const { list } = await import('./lib/list.ts')
+    return list(context)
   },
 
   async getResource (context) {
@@ -19,29 +20,25 @@ const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
     return getResource(context)
   },
 
-  async listDatasets (context) {
-    const { listDatasets } = await import('./lib/publications.ts')
-    return listDatasets(context)
-  },
-
   async publishDataset (context) {
     const { publishDataset } = await import('./lib/publications.ts')
     return publishDataset(context)
   },
 
-  async deleteDataset (context) {
-    const { deleteDataset } = await import('./lib/publications.ts')
-    return deleteDataset(context)
+  async deletePublication (context) {
+    const { deletePublication } = await import('./lib/publications.ts')
+    return deletePublication(context)
   },
 
   metadata: {
-    title: 'Catalog Udata',
+    title: 'Udata',
     description: 'Importez / publiez des jeux de données depuis / vers un catalogue Udata. (ex. : data.gouv.fr)',
+    i18n,
     capabilities
   },
 
   importConfigSchema,
-  listFiltersSchema,
+  importFiltersSchema,
   configSchema,
   assertConfigValid
 }

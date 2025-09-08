@@ -27,7 +27,7 @@ const secrets = {
 
 describe('catalog-udata', () => {
   it('should list datasets as folders from root', async () => {
-    const res = await catalogPlugin.listResources({
+    const res = await catalogPlugin.list({
       catalogConfig,
       secrets,
       params: { showAll: 'true' }
@@ -44,7 +44,7 @@ describe('catalog-udata', () => {
 
   it('should list resources from a dataset (folder)', async () => {
     // First get a dataset to test with
-    const rootRes = await catalogPlugin.listResources({
+    const rootRes = await catalogPlugin.list({
       catalogConfig,
       secrets,
       params: { showAll: 'true', size: 1, page: 1 }
@@ -54,7 +54,7 @@ describe('catalog-udata', () => {
 
     // List resources in the first dataset
     const datasetId = rootRes.results[0].id
-    const res = await catalogPlugin.listResources({
+    const res = await catalogPlugin.list({
       catalogConfig,
       secrets,
       params: { currentFolderId: datasetId }
@@ -69,7 +69,7 @@ describe('catalog-udata', () => {
   })
 
   it('should list resources with filters', async () => {
-    const res = await catalogPlugin.listResources({
+    const res = await catalogPlugin.list({
       catalogConfig,
       secrets,
       params: {
@@ -93,7 +93,7 @@ describe('catalog-udata', () => {
 
     it('with correct params', async () => {
       // First get a dataset and its resources
-      const rootRes = await catalogPlugin.listResources({
+      const rootRes = await catalogPlugin.list({
         catalogConfig,
         secrets,
         params: {
@@ -108,7 +108,7 @@ describe('catalog-udata', () => {
       assert.equal(rootRes.results.length, 1, 'Expected only one dataset in the results array')
 
       const datasetId = rootRes.results[0].id
-      const resourcesRes = await catalogPlugin.listResources({
+      const resourcesRes = await catalogPlugin.list({
         catalogConfig,
         secrets,
         params: { currentFolderId: datasetId }
@@ -123,7 +123,11 @@ describe('catalog-udata', () => {
         resourceId,
         importConfig: {}, // UData doesn't use importConfig
         tmpDir,
-        log: logFunctions
+        log: logFunctions,
+        update: {
+          metadata: false,
+          schema: false
+        }
       })
 
       assert.ok(resource, 'The resource should exist')
@@ -147,7 +151,11 @@ describe('catalog-udata', () => {
             resourceId,
             importConfig: {},
             tmpDir,
-            log: logFunctions
+            log: logFunctions,
+            update: {
+              metadata: false,
+              schema: false
+            }
           })
         },
         /not found|does not exist|invalid/i,
@@ -156,7 +164,7 @@ describe('catalog-udata', () => {
     })
   })
 
-  let remoteDatasetId: string
+  let remoteFolderId: string
   it('should publish a dataset', async () => {
     const dataset = {
       id: 'test-dataset',
@@ -166,7 +174,7 @@ describe('catalog-udata', () => {
       public: false
     }
     const publication = {
-      isResource: false
+      action: 'createFolderInRoot' as const
     }
     const publicationSite = {
       title: 'Test Site',
@@ -183,17 +191,16 @@ describe('catalog-udata', () => {
       log: logFunctions
     })
     assert.ok(result, 'The publication should be successful')
-    assert.ok(result.remoteDataset, 'The returned publication should have a remote dataset')
-    assert.ok(result.remoteDataset.id, 'The returned publication should have a remote dataset with an ID')
-    assert.equal(result.isResource, publication.isResource, 'Publication type should not be changed')
-    remoteDatasetId = result.remoteDataset.id
+    assert.ok(result.remoteFolder, 'The returned publication should have a remote folder')
+    assert.ok(result.remoteFolder.id, 'The returned publication should have a remote folder with an ID')
+    remoteFolderId = result.remoteFolder.id
   })
 
-  it('should delete a dataset', async () => {
-    await catalogPlugin.deleteDataset({
+  it('should delete a publication', async () => {
+    await catalogPlugin.deletePublication({
       catalogConfig,
       secrets,
-      datasetId: remoteDatasetId,
+      folderId: remoteFolderId,
       log: logFunctions
     })
     // Since this is a test with demo API, we can't verify the deletion, but we can check that no error is thrown
