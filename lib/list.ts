@@ -54,6 +54,26 @@ export const list = async ({ catalogConfig, secrets, params }: ListContext<UData
     datasets = (await axios.get(new URL('api/1/me/org_datasets', catalogConfig.url).href, axiosOptions)).data
     if (params.action !== 'replaceFolder') datasets = datasets.filter((d: any) => !d.deleted)
 
+    // Filter out datasets with "Consultez les données" resources for create/replace resource actions
+    if (params.action === 'createResource' || params.action === 'replaceResource') {
+      const filteredDatasets = []
+      for (const dataset of datasets) {
+        try {
+          const datasetDetails = (await axios.get(new URL(`api/1/datasets/${dataset.id}`, catalogConfig.url).href, axiosOptions)).data
+          const hasConsultezResource = (datasetDetails.resources || []).some((resource: any) =>
+            resource.title?.includes('Consultez les données')
+          )
+          if (!hasConsultezResource) {
+            filteredDatasets.push(dataset)
+          }
+        } catch (error) {
+          // In case of error fetching dataset details, include it in the list
+          filteredDatasets.push(dataset)
+        }
+      }
+      datasets = filteredDatasets
+    }
+
     count = datasets.length // Count before pagination
     if (params.size && params.page) {
       const startIndex = (params.page - 1) * params.size

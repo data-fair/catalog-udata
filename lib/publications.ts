@@ -21,6 +21,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
   const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
 
   const datasetUrl = microTemplate(publicationSite.datasetUrlTemplate || '', { id: dataset.id, slug: dataset.slug })
+  const useSlug = !!(publicationSite.datasetUrlTemplate && publicationSite.datasetUrlTemplate.includes('slug'))
   await log.info(`Dataset access URL: ${datasetUrl}`)
 
   await log.info('Preparing resources to publish')
@@ -64,7 +65,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
     resources.push({
       title: `Fichier ${originalFileFormat}`,
       description: `Téléchargez le fichier complet au format ${originalFileFormat}.`,
-      url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/raw`,
+      url: `${publicationSite.url}/data-fair/api/v1/datasets/${useSlug ? dataset.slug : dataset.id}/raw`,
       type: 'main',
       filetype: 'remote',
       filesize: dataset.originalFile.size,
@@ -77,7 +78,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       resources.push({
         title: `Fichier ${fileFormat}`,
         description: `Téléchargez le fichier complet au format ${fileFormat}.`,
-        url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/convert`,
+        url: `${publicationSite.url}/data-fair/api/v1/datasets/${useSlug ? dataset.slug : dataset.id}/convert`,
         type: 'main',
         filetype: 'remote',
         filesize: dataset.file.size,
@@ -103,7 +104,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publicationSite.url}/data-fair/api/v1/datasets/${useSlug ? dataset.slug : dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         filesize: attachment.size,
         mime: attachment.mimetype,
@@ -115,7 +116,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: `${publicationSite.url}/data-fair/api/v1/datasets/${dataset.id}/metadata-attachments/${attachment.name}`,
+        url: `${publicationSite.url}/data-fair/api/v1/datasets/${useSlug ? dataset.slug : dataset.id}/metadata-attachments/${attachment.name}`,
         filetype: 'remote',
         format: attachment.name.split('.').pop()
       })
@@ -234,22 +235,19 @@ const createOrUpdateResource = async ({ catalogConfig, secrets, dataset, publica
 
   const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
 
-  let datasetId: string
+  let datasetId: string | undefined
   let resourceId: string | undefined
 
-  if (publication.remoteFolder) {
-    datasetId = publication.remoteFolder.id
-    resourceId = publication.remoteResource?.id
-  } else if (publication.remoteResource?.id) {
+  if (publication.remoteFolder) datasetId = publication.remoteFolder.id
+  if (publication.remoteResource?.id) {
     const parts = publication.remoteResource.id.split(':')
     if (parts.length !== 2) {
       throw new Error(`Invalid resource ID: ${publication.remoteResource.id}. Expected: "datasetId:resourceId"`)
     }
     datasetId = parts[0]
     resourceId = parts[1]
-  } else {
-    throw new Error('No remote dataset provided to create or update resource')
   }
+  if (!datasetId) throw new Error('Dataset ID is required to create or update a resource')
 
   await log.info(`Retrieving remote dataset ${datasetId}`)
   const udataDataset = (await axios.get(new URL('api/1/datasets/' + datasetId, catalogConfig.url).href, axiosOptions)).data
@@ -272,7 +270,7 @@ const createOrUpdateResource = async ({ catalogConfig, secrets, dataset, publica
     publication.remoteResource = {
       id: `${datasetId}:${existingUdataResource.id}`,
       title: res.data.title,
-      url: res.data.url
+      url: udataDataset.page
     }
     await log.info(`Resource ${resourceId} updated successfully`)
   } else { // Add it
@@ -293,7 +291,7 @@ const createOrUpdateResource = async ({ catalogConfig, secrets, dataset, publica
     publication.remoteResource = {
       id: `${datasetId}:${res.data.id}`,
       title: res.data.title,
-      url: res.data.url
+      url: udataDataset.page
     }
     await log.info(`Resource created with ID: ${res.data.id} in dataset ${datasetId}`)
   }
