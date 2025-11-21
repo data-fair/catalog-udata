@@ -9,11 +9,11 @@ export const capabilities = [
 
   'importFilters',
 
-  'publication',
   'createFolderInRoot',
   'createResource',
   'replaceFolder',
-  'replaceResource'
+  'replaceResource',
+  'requiresPublicationSite'
 ] satisfies Capability[]
 
 export type UDataCapabilities = typeof capabilities

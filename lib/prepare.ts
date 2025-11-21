@@ -20,9 +20,18 @@ export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<U
   }
 
   // Manage capabilities
+  const publicationCapabilities = ['createFolderInRoot', 'createResource', 'replaceFolder', 'replaceResource'] as const
   if (secrets?.apiKey) {
-    if (!capabilities.includes('publication')) capabilities.push('publication')
-  } else capabilities = capabilities.filter(c => c !== 'publication')
+    for (const cap of publicationCapabilities) {
+      if (!capabilities.includes(cap)) capabilities.push(cap)
+    }
+  } else {
+    capabilities = capabilities.filter(c => !publicationCapabilities.includes(c as any))
+  }
+
+  // Compatibility: remove old 'publication' capability and add 'requiresPublicationSite'
+  capabilities = capabilities.filter(c => c !== 'publication' as any)
+  if (!capabilities.includes('requiresPublicationSite')) capabilities.push('requiresPublicationSite')
 
   // Check if the APIkey is valid by getting the user info
   if (secrets?.apiKey) {

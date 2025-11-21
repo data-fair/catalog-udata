@@ -36,7 +36,7 @@
     "@commitlint/cli": "^19.8.0",
     "@commitlint/config-conventional": "^19.8.0",
     "@data-fair/lib-types-builder": "^1.8.0",
-    "@data-fair/types-catalogs": "^0.5.0",
+    "@data-fair/types-catalogs": "^0.5.2",
     "@types/fs-extra": "^11.0.4",
     "chalk": "^5.4.1",
     "dayjs": "^1.11.13",
