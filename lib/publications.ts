@@ -46,7 +46,10 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       type: 'main',
       filetype: 'remote',
       format: 'Page Web',
-      mime: 'text/html'
+      mime: 'text/html',
+      extras: {
+        datafairEmbed: dataset.bbox ? 'map' : 'table'
+      }
     })
     resources.push({
       title: 'Documentation de l\'API',
@@ -55,7 +58,10 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       type: 'documentation',
       filetype: 'remote',
       format: 'Page Web',
-      mime: 'text/html'
+      mime: 'text/html',
+      extras: {
+        apidocUrl: `${publicationSite.url}/data-fair/api/v1/datasets/${useSlug ? dataset.slug : dataset.id}/api-docs.json`
+      }
     })
   }
 
@@ -127,8 +133,13 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
   const udataDataset: Record<string, any> = {
     title: dataset.title,
     description: dataset.description || dataset.title, // Description field is required
+    description_short: dataset.summary,
     private: !dataset.public,
-    resources
+    resources,
+    extras: {
+      datafairOrigin: publicationSite.url,
+      datafairDatasetId: dataset.id
+    }
   }
   if (dataset.frequency) udataDataset.frequency = dataset.frequency
   if (dataset.temporal?.start) {
