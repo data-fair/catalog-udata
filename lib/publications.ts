@@ -52,6 +52,18 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       }
     })
     resources.push({
+      title: 'Description des champs',
+      description: 'Description détaillée et types sémantiques des champs',
+      url: datasetUrl,
+      type: 'documentation',
+      filetype: 'remote',
+      format: 'Page Web',
+      mime: 'text/html',
+      extras: {
+        datafairEmbed: 'fields'
+      }
+    })
+    resources.push({
       title: 'Documentation de l\'API',
       description: 'Documentation interactive de l\'API à destination des développeurs. La description de l\'API utilise la spécification [OpenAPI 3.1.1](https://github.com/OAI/OpenAPI-Specification)',
       url: datasetUrl + '/api-doc',
