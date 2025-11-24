@@ -139,7 +139,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
     private: !dataset.public,
     resources,
     extras: {
-      datafairOrigin: publicationSite.url,
+      datafairOrigin: publicationSite.url + '/data-fair',
       datafairDatasetId: dataset.id
     }
   }
