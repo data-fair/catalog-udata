@@ -133,7 +133,9 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
   const udataDataset: Record<string, any> = {
     title: dataset.title,
     description: dataset.description || dataset.title, // Description field is required
-    description_short: dataset.summary,
+    description_short: dataset.summary && dataset.summary.length > 200
+      ? dataset.summary.substring(0, 197) + '...'
+      : dataset.summary,
     private: !dataset.public,
     resources,
     extras: {
