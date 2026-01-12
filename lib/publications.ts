@@ -215,8 +215,19 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
         if (matchingResource) {
           resource.id = matchingResource.id
           await log.info(`Preserving identifier for resource: ${resource.title} (ID: ${resource.id})`)
+          // If the existing resource has a harvest, clear it
+          if (matchingResource.harvest) {
+            resource.harvest = {}
+            await log.info(`Clear harvest for resource: ${resource.title}`)
+          }
         }
       }
+    }
+
+    // If the existing dataset has a harvest, set it with new remote_url
+    if (existingUdataDataset.harvest) {
+      udataDataset.harvest = { remote_url: datasetUrl }
+      await log.info(`Setting harvest with remote_url for dataset: ${datasetUrl}`)
     }
 
     Object.assign(existingUdataDataset, udataDataset)

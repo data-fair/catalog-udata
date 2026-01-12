@@ -36,7 +36,7 @@ export default {
       type: 'boolean',
       title: 'Show all datasets',
       'x-i18n-title': {
-        fr: 'Voir tous les jeux de données'
+        fr: 'Afficher les jeux de données d\'autres organisations'
       },
       default: true,
       layout: {
