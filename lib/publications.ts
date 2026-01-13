@@ -204,13 +204,24 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
     if (existingUdataDataset.resources) {
       await log.info('Preserving existing resource identifiers')
       for (const resource of udataDataset.resources) {
-        const matchingResource = existingUdataDataset.resources.find((r: { url?: string }) => {
+        const matchingResource = existingUdataDataset.resources.find((r: { url?: string, title?: string, extras?: any }) => {
           if (!r.url || !resource.url) return false
 
           // Special case: for URLs ending with /convert or /raw, match only by suffix
           if (resource.url.endsWith('/convert')) return r.url.endsWith('/convert')
           if (resource.url.endsWith('/raw')) return r.url.endsWith('/raw')
-          return resource.url === r.url // Default case: match by complete URL
+          // For URLs that are identical, we need to differentiate by title and extras
+          if (resource.url === r.url) {
+            // Match by title first
+            if (r.title !== resource.title) return false
+            // If both have extras.datafairEmbed, they must match
+            if (resource.extras?.datafairEmbed && r.extras?.datafairEmbed) {
+              return resource.extras.datafairEmbed === r.extras.datafairEmbed
+            }
+            return true
+          }
+
+          return false
         })
         if (matchingResource) {
           resource.id = matchingResource.id
