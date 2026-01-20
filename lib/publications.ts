@@ -163,6 +163,14 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
     }
   }
   if (dataset.keywords && dataset.keywords.length) udataDataset.tags = dataset.keywords
+  if (dataset.spatial) {
+    await log.step('Mapping spatial coverage')
+    const spatial = await mapSpatialCoverage(dataset.spatial, catalogConfig.url, axiosOptions, log)
+    if (spatial.zones.length > 0) {
+      udataDataset.spatial = spatial
+      await log.info(`Spatial coverage mapped with ${spatial.zones.length} zone(s)`)
+    }
+  }
   if (dataset.license) {
     await log.info(`Searching for corresponding license: ${dataset.license.href}`)
     const udataLicenses = (await axios.get<any[]>(new URL('api/1/datasets/licenses/', catalogConfig.url).href, axiosOptions)).data
@@ -378,4 +386,59 @@ const deleteResource = async ({ catalogConfig, secrets, folderId, resourceId, lo
     if (![404, 410].includes(e.status)) throw new Error(`Error deleting resource on ${catalogConfig.url}: ${e.message}`)
     await log.warning(`Resource ${resourceId} doesn't exist or has already been deleted (code ${e.status})`)
   }
+}
+
+const normalizeString = (str: string): string => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+const mapSpatialCoverage = async (spatial: string, catalogUrl: string, axiosOptions: any, log: any): Promise<{ granularity?: string, zones: string[] }> => {
+  // Split spatial value by semicolon and process each zone
+  const spatialValues = spatial.split(';').map(s => s.trim()).filter(s => s.length > 0)
+
+  // Fetch all spatial zones in parallel
+  const searchPromises = spatialValues.map(async (spatialValue) => {
+    try {
+      await log.info(`Searching for spatial zone: ${spatialValue}`)
+      const suggestUrl = new URL('api/1/spatial/zones/suggest/', catalogUrl)
+      suggestUrl.searchParams.set('q', spatialValue)
+      suggestUrl.searchParams.set('size', '10')
+
+      const response = await axios.get<{ id: string, level: string, name: string }[]>(suggestUrl.href, axiosOptions)
+      const results = response.data
+
+      if (results && results.length > 0) {
+        // Try to find an exact match on the name field (normalized)
+        const normalizedQuery = normalizeString(spatialValue)
+        const exactMatch = results.find(r => normalizeString(r.name) === normalizedQuery)
+
+        const selectedResult = exactMatch || results[0]
+        await log.info(`Found spatial zone: ${selectedResult.name} (${selectedResult.id})${exactMatch ? ' [exact match]' : ''}`)
+        return { id: selectedResult.id, level: selectedResult.level }
+      } else {
+        await log.warning(`No spatial zone found for: ${spatialValue}`)
+        return null
+      }
+    } catch (error: any) {
+      await log.warning(`Error searching for spatial zone "${spatialValue}": ${error.message}`)
+      return null
+    }
+  })
+
+  const searchResults = await Promise.all(searchPromises)
+  const validResults = searchResults.filter((r): r is { id: string, level: string } => r !== null)
+
+  const zones: string[] = []
+  const levels: string[] = []
+  for (const result of validResults) {
+    zones.push(result.id)
+    levels.push(result.level)
+  }
+
+  const result: { granularity?: string, zones: string[] } = { zones }
+
+  // Set granularity if all levels are the same
+  if (levels.length > 0 && levels.every(level => level === levels[0])) {
+    result.granularity = levels[0]
+    await log.info(`Granularity set to: ${levels[0]}`)
+  }
+
+  return result
 }

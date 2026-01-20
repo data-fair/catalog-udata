@@ -3,6 +3,7 @@ import { strict as assert } from 'node:assert'
 import { it, describe, before, beforeEach } from 'node:test'
 import fs from 'fs-extra'
 import dotenv from 'dotenv'
+import axios from 'axios'
 import { logFunctions } from './test-utils.ts'
 
 // Import plugin and use default type like it's done in Catalogs
@@ -205,5 +206,152 @@ describe('catalog-udata', () => {
     })
     // Since this is a test with demo API, we can't verify the deletion, but we can check that no error is thrown
     assert.ok(true, 'Delete operation should not throw an error')
+  })
+
+  describe('spatial coverage mapping', () => {
+    it('should not map "France métropolitaine, sans la Corse ni les iles du Ponant"', async () => {
+      const dataset = {
+        id: 'test-spatial-1',
+        title: 'Test Spatial 1',
+        description: 'Test dataset with unmappable spatial coverage',
+        slug: 'test-spatial-1',
+        public: false,
+        spatial: 'France métropolitaine, sans la Corse ni les iles du Ponant'
+      }
+      const publication = {
+        action: 'createFolderInRoot' as const
+      }
+      const publicationSite = {
+        title: 'Test Site',
+        url: 'http://example.com',
+        datasetUrlTemplate: 'http://example.com/data-fair/{id}'
+      }
+
+      const result = await catalogPlugin.publishDataset({
+        catalogConfig,
+        secrets,
+        dataset,
+        publication,
+        publicationSite,
+        log: logFunctions
+      })
+
+      assert.ok(result.remoteFolder?.id, 'Publication should have a remote folder ID')
+
+      // Verify spatial coverage on the remote dataset
+      const response = await axios.get(
+        new URL(`api/1/datasets/${result.remoteFolder.id}`, catalogConfig.url).href,
+        { headers: { 'X-API-KEY': secrets.apiKey } }
+      )
+      const remoteDataset = response.data
+
+      // This query is too complex and should not be mapped to any zone
+      assert.ok(!remoteDataset.spatial || remoteDataset.spatial.zones.length === 0, 'Should have no spatial zones for unmappable text')
+
+      // Clean up
+      await catalogPlugin.deletePublication({
+        catalogConfig,
+        secrets,
+        folderId: result.remoteFolder.id,
+        log: logFunctions
+      })
+    })
+
+    it('should map "Vannes; France" to 2 zones with different granularity', async () => {
+      const dataset = {
+        id: 'test-spatial-2',
+        title: 'Test Spatial 2',
+        description: 'Test dataset with mixed levels',
+        slug: 'test-spatial-2',
+        public: false,
+        spatial: 'Vannes; France'
+      }
+      const publication = {
+        action: 'createFolderInRoot' as const
+      }
+      const publicationSite = {
+        title: 'Test Site',
+        url: 'http://example.com',
+        datasetUrlTemplate: 'http://example.com/data-fair/{id}'
+      }
+
+      const result = await catalogPlugin.publishDataset({
+        catalogConfig,
+        secrets,
+        dataset,
+        publication,
+        publicationSite,
+        log: logFunctions
+      })
+
+      assert.ok(result.remoteFolder?.id, 'Publication should have a remote folder ID')
+
+      // Verify spatial coverage on the remote dataset
+      const response = await axios.get(
+        new URL(`api/1/datasets/${result.remoteFolder.id}`, catalogConfig.url).href,
+        { headers: { 'X-API-KEY': secrets.apiKey } }
+      )
+      const remoteDataset = response.data
+
+      assert.ok(remoteDataset.spatial, 'Remote dataset should have spatial coverage')
+      assert.equal(remoteDataset.spatial.zones.length, 2, 'Should have 2 spatial zones')
+      assert.equal(remoteDataset.spatial.granularity, 'other', 'Should have granularity set to "other" (mixed levels)')
+
+      // Clean up
+      await catalogPlugin.deletePublication({
+        catalogConfig,
+        secrets,
+        folderId: result.remoteFolder.id,
+        log: logFunctions
+      })
+    })
+
+    it('should map "Corse; Martinique; Guadeloupe; La Réunion; Guyane" to 5 zones', async () => {
+      const dataset = {
+        id: 'test-spatial-3',
+        title: 'Test Spatial 3',
+        description: 'Test dataset with multiple spatial zones',
+        slug: 'test-spatial-3',
+        public: false,
+        spatial: 'Corse; Martinique; Guadeloupe; La Réunion; Guyane'
+      }
+      const publication = {
+        action: 'createFolderInRoot' as const
+      }
+      const publicationSite = {
+        title: 'Test Site',
+        url: 'http://example.com',
+        datasetUrlTemplate: 'http://example.com/data-fair/{id}'
+      }
+
+      const result = await catalogPlugin.publishDataset({
+        catalogConfig,
+        secrets,
+        dataset,
+        publication,
+        publicationSite,
+        log: logFunctions
+      })
+
+      assert.ok(result.remoteFolder?.id, 'Publication should have a remote folder ID')
+
+      // Verify spatial coverage on the remote dataset
+      const response = await axios.get(
+        new URL(`api/1/datasets/${result.remoteFolder.id}`, catalogConfig.url).href,
+        { headers: { 'X-API-KEY': secrets.apiKey } }
+      )
+      const remoteDataset = response.data
+
+      assert.ok(remoteDataset.spatial, 'Remote dataset should have spatial coverage')
+      assert.equal(remoteDataset.spatial.zones.length, 5, 'Should have 5 spatial zones')
+
+      // Clean up
+      await catalogPlugin.deletePublication({
+        catalogConfig,
+        secrets,
+        folderId: result.remoteFolder.id,
+        log: logFunctions
+      })
+    })
   })
 })
