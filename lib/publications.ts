@@ -409,9 +409,12 @@ const mapSpatialCoverage = async (spatial: string, catalogUrl: string, axiosOpti
         const normalizedQuery = normalizeString(spatialValue)
         const exactMatch = results.find(r => normalizeString(r.name) === normalizedQuery)
 
-        const selectedResult = exactMatch || results[0]
-        await log.info(`Found spatial zone: ${selectedResult.name} (${selectedResult.id})${exactMatch ? ' [exact match]' : ''}`)
-        return { id: selectedResult.id, level: selectedResult.level }
+        if (!exactMatch) {
+          await log.warning(`No exact spatial zone found for: ${spatialValue}`)
+          return null
+        }
+        await log.info(`Found spatial zone: ${exactMatch.name} (${exactMatch.id})`)
+        return { id: exactMatch.id, level: exactMatch.level }
       } else {
         await log.warning(`No spatial zone found for: ${spatialValue}`)
         return null

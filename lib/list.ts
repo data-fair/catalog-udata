@@ -24,14 +24,16 @@ export const list = async ({ catalogConfig, secrets, params }: ListContext<UData
       format: udataResource.format || 'unknown',
       origin: dataset.page,
       mimeType: udataResource.mime,
-      size: udataResource.filesize
+      size: udataResource.filesize,
+      updatedAt: udataResource.last_modified
     } as ResourceResponse))
 
     // Build the path with the dataset folder
     const path: Folder[] = [{
       id: dataset.id,
       title: dataset.title,
-      type: 'folder'
+      type: 'folder',
+      updatedAt: dataset.last_modified
     }]
 
     return {
@@ -86,7 +88,8 @@ export const list = async ({ catalogConfig, secrets, params }: ListContext<UData
   const folders = datasets.map((dataset: any) => ({
     id: dataset.id,
     title: dataset.deleted && params.action === 'replaceFolder' ? `[Supprimé] ${dataset.title}` : dataset.title,
-    type: 'folder'
+    type: 'folder',
+    updatedAt: dataset.last_modified
   } as Folder))
 
   return {
