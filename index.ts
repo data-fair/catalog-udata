@@ -32,7 +32,6 @@ const plugin: CatalogPlugin<UDataConfig, UDataCapabilities> = {
 
   metadata: {
     title: 'Udata',
-    description: 'Importez / publiez des jeux de données depuis / vers un catalogue Udata. (ex. : data.gouv.fr)',
     i18n,
     capabilities
   },

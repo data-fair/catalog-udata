@@ -1,3 +1,4 @@
+/* eslint-disable no-template-curly-in-string */
 export default {
   type: 'object',
   additionalProperties: false,
@@ -14,7 +15,7 @@ export default {
       },
       layout: {
         getItems: {
-          url: 'https://demo.data.gouv.fr/api/1/organizations/suggest/',
+          url: '${context.catalogConfig.url}/api/1/organizations/suggest/',
           itemTitle: 'item.name',
           itemValue: 'item.id',
           itemIcon: 'item.image_url',
