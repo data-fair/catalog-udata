@@ -34,7 +34,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       url: datasetUrl,
       type: 'main',
       filetype: 'remote',
-      format: 'Page Web',
+      format: 'url',
       mime: 'text/html'
     })
   } else {
@@ -45,7 +45,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       url: datasetUrl,
       type: 'main',
       filetype: 'remote',
-      format: 'Page Web',
+      format: 'url',
       mime: 'text/html',
       extras: {
         datafairEmbed: dataset.bbox ? 'map' : 'table'
@@ -57,7 +57,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       url: datasetUrl,
       type: 'documentation',
       filetype: 'remote',
-      format: 'Page Web',
+      format: 'url',
       mime: 'text/html',
       extras: {
         datafairEmbed: 'fields'
@@ -69,7 +69,7 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       url: datasetUrl + '/api-doc',
       type: 'documentation',
       filetype: 'remote',
-      format: 'Page Web',
+      format: 'url',
       mime: 'text/html',
       extras: {
         apidocUrl: `${publicationSite.url}/data-fair/api/v1/datasets/${useSlug ? dataset.slug : dataset.id}/api-docs.json`
@@ -114,7 +114,8 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       resources.push({
         title: attachment.title,
         description: attachment.description,
-        url: attachment.url
+        url: attachment.url,
+        format: 'url'
       })
     }
     if (attachment.type === 'file') {
@@ -336,7 +337,7 @@ const createOrUpdateResource = async ({ catalogConfig, secrets, dataset, publica
       url,
       type: 'main',
       filetype: 'remote',
-      format: 'Page Web',
+      format: 'url',
       mime: 'text/html'
     }
 
