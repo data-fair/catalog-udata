@@ -17,17 +17,17 @@ export const deletePublication = async (context: DeletePublicationContext<UDataC
 }
 
 const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publication, publicationSite, log }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
-  await log.step('Preparing the dataset for publication/update on UData')
   const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
-
   const datasetUrl = microTemplate(publicationSite.datasetUrlTemplate || '', { id: dataset.id, slug: dataset.slug })
   const useSlug = !!(publicationSite.datasetUrlTemplate && publicationSite.datasetUrlTemplate.includes('slug'))
+  const isUpdate = !!publication.remoteFolder
+
+  // Step 1: Prepare resources and attachments
+  await log.step('Preparing resources')
   await log.info(`Dataset access URL: ${datasetUrl}`)
 
-  await log.info('Preparing resources to publish')
   const resources = []
   if (dataset.isMetaOnly) {
-    await log.info('Metadata-only dataset')
     resources.push({
       title: 'Consultez les données',
       description: 'Consultez le jeu de données',
@@ -38,7 +38,6 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       mime: 'text/html'
     })
   } else {
-    await log.info('Dataset with content')
     resources.push({
       title: 'Consultez les données',
       description: `Consultez directement les données dans ${dataset.bbox ? 'une carte interactive' : 'un tableau'}.`,
@@ -63,22 +62,9 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
         datafairEmbed: 'fields'
       }
     })
-    resources.push({
-      title: 'Documentation de l\'API',
-      description: 'Documentation interactive de l\'API à destination des développeurs. La description de l\'API utilise la spécification [OpenAPI 3.1.1](https://github.com/OAI/OpenAPI-Specification)',
-      url: datasetUrl + '/api-doc',
-      type: 'documentation',
-      filetype: 'remote',
-      format: 'url',
-      mime: 'text/html',
-      extras: {
-        apidocUrl: `${publicationSite.url}/data-fair/api/v1/datasets/${useSlug ? dataset.slug : dataset.id}/api-docs.json`
-      }
-    })
   }
 
   if (dataset.file) {
-    await log.info('Adding the main file')
     const originalFileFormat = dataset.originalFile.name.split('.').pop()
     resources.push({
       title: `Fichier ${originalFileFormat}`,
@@ -92,7 +78,6 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
     })
     if (dataset.file.mimetype !== dataset.originalFile.mimetype) {
       const fileFormat = dataset.file.name.split('.').pop()
-      await log.info(`Adding file in ${fileFormat} format`)
       resources.push({
         title: `Fichier ${fileFormat}`,
         description: `Téléchargez le fichier complet au format ${fileFormat}.`,
@@ -106,11 +91,11 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
     }
   }
 
-  await log.info('Preparing attachments')
+  let attachmentCount = 0
   for (const attachment of dataset.attachments || []) {
     if (!attachment.includeInCatalogPublications) continue
+    attachmentCount++
     if (attachment.type === 'url') {
-      await log.info(`Adding URL attachment: ${attachment.title}`)
       resources.push({
         title: attachment.title,
         description: attachment.description,
@@ -119,7 +104,6 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       })
     }
     if (attachment.type === 'file') {
-      await log.info(`Adding file attachment: ${attachment.title}`)
       resources.push({
         title: attachment.title,
         description: attachment.description,
@@ -131,7 +115,6 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
       })
     }
     if (attachment.type === 'remoteFile') {
-      await log.info(`Adding remote file attachment: ${attachment.title}`)
       resources.push({
         title: attachment.title,
         description: attachment.description,
@@ -142,7 +125,11 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
     }
   }
 
-  await log.step('Building the UData dataset')
+  const resourceCount = resources.length - attachmentCount
+  await log.info(`${resourceCount} resource(s) and ${attachmentCount} attachment(s) ready to publish`)
+
+  // Step 2: Build UData dataset payload
+  await log.step('Building UData dataset')
   const udataDataset: Record<string, any> = {
     title: dataset.title,
     description: dataset.description || dataset.title, // Description field is required
@@ -165,119 +152,178 @@ const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publicat
   }
   if (dataset.keywords && dataset.keywords.length) udataDataset.tags = dataset.keywords
   if (dataset.spatial) {
-    await log.step('Mapping spatial coverage')
     const spatial = await mapSpatialCoverage(dataset.spatial, catalogConfig.url, axiosOptions, log)
     if (spatial.zones.length > 0) {
       udataDataset.spatial = spatial
-      await log.info(`Spatial coverage mapped with ${spatial.zones.length} zone(s)`)
+      await log.info(`Spatial coverage: ${spatial.zones.length} zone(s) mapped`)
     }
   }
   if (dataset.license) {
-    await log.info(`Searching for corresponding license: ${dataset.license.href}`)
     const udataLicenses = (await axios.get<any[]>(new URL('api/1/datasets/licenses/', catalogConfig.url).href, axiosOptions)).data
     const udataLicense = udataLicenses.find(l => l.url === dataset.license.href)
     if (udataLicense) {
-      await log.info(`License found: ${udataLicense.title}`)
+      await log.info(`License: ${udataLicense.title}`)
       udataDataset.license = udataLicense.id
     } else {
       await log.warning(`License not found on UData: ${dataset.license.href}`)
     }
   }
   if (catalogConfig.organization?.id) {
-    await log.info(`Associating with organization: ${catalogConfig.organization.id}`)
     udataDataset.organization = { id: catalogConfig.organization.id }
   }
 
-  // Try to retrieve the remote dataset to update it
-  if (publication.remoteFolder) {
-    await log.step(`Updating existing remote dataset: ${publication.remoteFolder.id}`)
-    const existingUdataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteFolder.id, catalogConfig.url).href, axiosOptions)).data
-    // If the dataset no longer exists, we create it
+  const metadataDetails = [
+    dataset.frequency ? `frequency=${dataset.frequency}` : null,
+    dataset.temporal?.start ? 'temporal coverage' : null,
+    dataset.keywords?.length ? `${dataset.keywords.length} tag(s)` : null,
+    catalogConfig.organization?.id ? `organization=${catalogConfig.organization.id}` : null,
+    !dataset.public ? 'private' : 'public'
+  ].filter(Boolean).join(', ')
+  await log.info(`Dataset metadata: ${metadataDetails}`)
+
+  // Step 3: Create or update remote dataset
+  if (isUpdate) {
+    await log.step(`Updating remote dataset: ${publication.remoteFolder!.id}`)
+    const existingUdataDataset = (await axios.get(new URL('api/1/datasets/' + publication.remoteFolder!.id, catalogConfig.url).href, axiosOptions)).data
     if (!existingUdataDataset) {
-      // await log.warning(`The remote dataset ${publication.remoteFolder.id} no longer exists, creating a new dataset`)
-      // const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
-      // publication.remoteFolder = {
-      //   id: res.data.id,
-      //   title: res.data.title,
-      //   url: res.data.page
-      // }
-      // await log.info(`New dataset created with ID: ${res.data.id}`)
-      // return publication
-      throw new Error(`The remote dataset ${publication.remoteFolder.id} no longer exists.`)
+      throw new Error(`The remote dataset ${publication.remoteFolder!.id} no longer exists.`)
     } else if (existingUdataDataset.deleted) {
-      await log.warning(`The remote dataset ${publication.remoteFolder.id} was deleted, creating a new dataset with the same id`)
+      await log.warning('Dataset was deleted on UData, restoring with the same ID')
       existingUdataDataset.deleted = null
     }
 
-    // preserving resource id so that URLs are not broken
+    // Preserve resource IDs so that URLs are not broken
+    let preservedCount = 0
     if (existingUdataDataset.resources) {
-      await log.info('Preserving existing resource identifiers')
       for (const resource of udataDataset.resources) {
         const matchingResource = existingUdataDataset.resources.find((r: { url?: string, title?: string, extras?: any }) => {
           if (!r.url || !resource.url) return false
-
-          // Special case: for URLs ending with /convert or /raw, match only by suffix
           if (resource.url.endsWith('/convert')) return r.url.endsWith('/convert')
           if (resource.url.endsWith('/raw')) return r.url.endsWith('/raw')
-          // For URLs that are identical, we need to differentiate by title and extras
           if (resource.url === r.url) {
-            // Match by title first
             if (r.title !== resource.title) return false
-            // If both have extras.datafairEmbed, they must match
             if (resource.extras?.datafairEmbed && r.extras?.datafairEmbed) {
               return resource.extras.datafairEmbed === r.extras.datafairEmbed
             }
             return true
           }
-
           return false
         })
         if (matchingResource) {
           resource.id = matchingResource.id
-          await log.info(`Preserving identifier for resource: ${resource.title} (ID: ${resource.id})`)
-          // If the existing resource has a harvest, clear it
+          preservedCount++
           if (matchingResource.harvest) {
             resource.harvest = {}
-            await log.info(`Clear harvest for resource: ${resource.title}`)
           }
         }
       }
     }
+    if (preservedCount > 0) {
+      await log.info(`${preservedCount} existing resource identifier(s) preserved`)
+    }
 
-    // If the existing dataset has a harvest, set it with new remote_url
     if (existingUdataDataset.harvest) {
       udataDataset.harvest = { remote_url: datasetUrl }
-      await log.info(`Setting harvest with remote_url for dataset: ${datasetUrl}`)
+    }
+
+    // Read dataserviceId before Object.assign overwrites extras
+    const existingDataserviceId = existingUdataDataset.extras?.dataserviceId
+    if (existingDataserviceId) {
+      udataDataset.extras.dataserviceId = existingDataserviceId
     }
 
     Object.assign(existingUdataDataset, udataDataset)
-    await log.info(`Updating remote dataset: ${publication.remoteFolder.id}`)
-    const res = await axios.put(new URL('api/1/datasets/' + publication.remoteFolder.id, catalogConfig.url).href, existingUdataDataset, axiosOptions)
+    const res = await axios.put(new URL('api/1/datasets/' + publication.remoteFolder!.id, catalogConfig.url).href, existingUdataDataset, axiosOptions)
     publication.remoteFolder = {
       id: res.data.id,
       title: res.data.title,
       url: res.data.page
     }
-    await log.info('Update successful')
+    await log.info('Remote dataset updated successfully')
+
+    // Step 4: Manage linked dataservice
+    if (!dataset.isMetaOnly) {
+      await log.step(existingDataserviceId ? `Updating linked dataservice: ${existingDataserviceId}` : 'Creating linked dataservice')
+      await createOrUpdateDataservice({
+        datasetRemoteId: publication.remoteFolder.id,
+        dataserviceId: existingDataserviceId,
+        dataset,
+        publicationSite,
+        datasetUrl,
+        useSlug,
+        catalogConfig,
+        existingExtras: res.data.extras || {},
+        axiosOptions,
+        log
+      })
+    }
   } else {
-    await log.step('Creating a new dataset on UData')
+    await log.step('Creating new dataset on UData')
     const res = await axios.post(new URL('api/1/datasets/', catalogConfig.url).href, udataDataset, axiosOptions)
     publication.remoteFolder = {
       id: res.data.id,
       title: res.data.title,
       url: res.data.page
     }
-    await log.info(`New dataset created with ID: ${res.data.id}`)
+    await log.info(`Dataset created: ${res.data.id}`)
+
+    // Step 4: Create linked dataservice
+    if (!dataset.isMetaOnly) {
+      await log.step('Creating linked dataservice')
+      await createOrUpdateDataservice({
+        datasetRemoteId: publication.remoteFolder.id,
+        dataserviceId: undefined,
+        dataset,
+        publicationSite,
+        datasetUrl,
+        useSlug,
+        catalogConfig,
+        existingExtras: res.data.extras || {},
+        axiosOptions,
+        log
+      })
+    }
   }
 
-  await log.info('Publication completed successfully')
+  // Step 5: Final summary
+  await log.step('Publication complete')
+  await log.info(`Dataset "${dataset.title}" published to ${catalogConfig.url}`)
+  await log.info(`Remote ID: ${publication.remoteFolder!.id} — ${resources.length} resource(s) total`)
   return publication
 }
 
+const deleteDataservice = async (catalogUrl: string, dataserviceId: string, axiosOptions: { headers: Record<string, string> }, log: any): Promise<void> => {
+  try {
+    await log.info(`Deleting dataservice ${dataserviceId}`)
+    await axios.delete(new URL(`api/1/dataservices/${dataserviceId}/`, catalogUrl).href, axiosOptions)
+    await log.info(`Dataservice ${dataserviceId} deleted`)
+  } catch (e: any) {
+    if ([404, 410].includes(e.status)) {
+      await log.warning(`Dataservice ${dataserviceId} already deleted (${e.status})`)
+    } else {
+      await log.warning(`Failed to delete dataservice ${dataserviceId}: ${e.message}`)
+    }
+  }
+}
+
 const deleteDataset = async ({ catalogConfig, secrets, folderId, log }: DeletePublicationContext<UDataConfig>): Promise<void> => {
+  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
+
+  // Try to read the dataset to get the linked dataserviceId
+  try {
+    const remoteDataset = (await axios.get(new URL(`api/1/datasets/${folderId}/`, catalogConfig.url).href, axiosOptions)).data
+    if (remoteDataset?.extras?.dataserviceId) {
+      await deleteDataservice(catalogConfig.url, remoteDataset.extras.dataserviceId, axiosOptions, log)
+    }
+  } catch (e: any) {
+    if (![404, 410].includes(e.status)) {
+      await log.warning(`Could not read dataset ${folderId} to find dataservice: ${e.message}`)
+    }
+  }
+
   try {
     await log.step(`Deleting dataset ${folderId}`)
-    await axios.delete(new URL(`api/1/datasets/${folderId}/`, catalogConfig.url).href, { headers: { 'X-API-KEY': secrets.apiKey } })
+    await axios.delete(new URL(`api/1/datasets/${folderId}/`, catalogConfig.url).href, axiosOptions)
     await log.info(`Dataset ${folderId} deleted successfully`)
   } catch (e: any) {
     await log.error(`Error deleting dataset: ${e.message}`)
@@ -389,6 +435,74 @@ const deleteResource = async ({ catalogConfig, secrets, folderId, resourceId, lo
   }
 }
 
+interface DataserviceOptions {
+  datasetRemoteId: string
+  dataserviceId: string | undefined
+  dataset: Record<string, any>
+  publicationSite: { url: string, datasetUrlTemplate?: string }
+  datasetUrl: string
+  useSlug: boolean
+  catalogConfig: { url: string, organization?: { id: string } }
+  existingExtras: Record<string, any>
+  axiosOptions: { headers: Record<string, string> }
+  log: any
+}
+
+const createOrUpdateDataservice = async (opts: DataserviceOptions): Promise<string | undefined> => {
+  const { datasetRemoteId, dataserviceId, dataset, publicationSite, datasetUrl, useSlug, catalogConfig, existingExtras, axiosOptions, log } = opts
+  const datasetRef = useSlug ? dataset.slug : dataset.id
+
+  const dataserviceData: Record<string, any> = {
+    title: dataset.title,
+    description: dataset.description || dataset.title,
+    base_api_url: `${publicationSite.url}/data-fair/api/v1/datasets/${datasetRef}/`,
+    technical_documentation_url: `${datasetUrl}/api-doc`,
+    machine_documentation_url: `${publicationSite.url}/data-fair/api/v1/datasets/${datasetRef}/api-docs.json`,
+    format: 'REST',
+    private: !dataset.public,
+    datasets: [datasetRemoteId],
+    availability: 99.9
+  }
+  if (catalogConfig.organization?.id) {
+    dataserviceData.organization = catalogConfig.organization.id
+  }
+
+  // Update existing dataservice
+  if (dataserviceId) {
+    try {
+      await axios.patch(new URL(`api/1/dataservices/${dataserviceId}/`, catalogConfig.url).href, dataserviceData, axiosOptions)
+      await log.info('Dataservice updated successfully')
+      return dataserviceId
+    } catch (e: any) {
+      if ([404, 410].includes(e.status)) {
+        await log.warning(`Dataservice ${dataserviceId} no longer exists, creating a new one`)
+      } else {
+        await log.warning(`Failed to update dataservice: ${e.message}`)
+        return undefined
+      }
+    }
+  }
+
+  // Create new dataservice
+  try {
+    const res = await axios.post(new URL('api/1/dataservices/', catalogConfig.url).href, dataserviceData, axiosOptions)
+    const newId = res.data.id
+    await log.info(`Dataservice created: ${newId}`)
+
+    // Write dataserviceId back to the remote dataset extras
+    await axios.put(
+      new URL(`api/1/datasets/${datasetRemoteId}/`, catalogConfig.url).href,
+      { extras: { ...existingExtras, dataserviceId: newId } },
+      axiosOptions
+    )
+    await log.info('Dataservice ID stored in dataset extras')
+    return newId
+  } catch (e: any) {
+    await log.warning(`Failed to create dataservice: ${e.message}`)
+    return undefined
+  }
+}
+
 const normalizeString = (str: string): string => str.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
 const mapSpatialCoverage = async (spatial: string, catalogUrl: string, axiosOptions: any, log: any): Promise<{ granularity?: string, zones: string[] }> => {
   // Split spatial value by semicolon and process each zone
@@ -397,7 +511,6 @@ const mapSpatialCoverage = async (spatial: string, catalogUrl: string, axiosOpti
   // Fetch all spatial zones in parallel
   const searchPromises = spatialValues.map(async (spatialValue) => {
     try {
-      await log.info(`Searching for spatial zone: ${spatialValue}`)
       const suggestUrl = new URL('api/1/spatial/zones/suggest/', catalogUrl)
       suggestUrl.searchParams.set('q', spatialValue)
       suggestUrl.searchParams.set('size', '10')
@@ -406,20 +519,12 @@ const mapSpatialCoverage = async (spatial: string, catalogUrl: string, axiosOpti
       const results = response.data
 
       if (results && results.length > 0) {
-        // Try to find an exact match on the name field (normalized)
         const normalizedQuery = normalizeString(spatialValue)
         const exactMatch = results.find(r => normalizeString(r.name) === normalizedQuery)
-
-        if (!exactMatch) {
-          await log.warning(`No exact spatial zone found for: ${spatialValue}`)
-          return null
-        }
-        await log.info(`Found spatial zone: ${exactMatch.name} (${exactMatch.id})`)
-        return { id: exactMatch.id, level: exactMatch.level }
-      } else {
-        await log.warning(`No spatial zone found for: ${spatialValue}`)
-        return null
+        if (!exactMatch) return null
+        return { id: exactMatch.id, level: exactMatch.level, name: exactMatch.name }
       }
+      return null
     } catch (error: any) {
       await log.warning(`Error searching for spatial zone "${spatialValue}": ${error.message}`)
       return null
@@ -427,7 +532,8 @@ const mapSpatialCoverage = async (spatial: string, catalogUrl: string, axiosOpti
   })
 
   const searchResults = await Promise.all(searchPromises)
-  const validResults = searchResults.filter((r): r is { id: string, level: string } => r !== null)
+  const validResults = searchResults.filter((r): r is { id: string, level: string, name: string } => r !== null)
+  const notFound = spatialValues.filter((_, i) => searchResults[i] === null)
 
   const zones: string[] = []
   const levels: string[] = []
@@ -436,12 +542,14 @@ const mapSpatialCoverage = async (spatial: string, catalogUrl: string, axiosOpti
     levels.push(result.level)
   }
 
+  if (notFound.length > 0) {
+    await log.warning(`Spatial zone(s) not found: ${notFound.join(', ')}`)
+  }
+
   const result: { granularity?: string, zones: string[] } = { zones }
 
-  // Set granularity if all levels are the same
   if (levels.length > 0 && levels.every(level => level === levels[0])) {
     result.granularity = levels[0]
-    await log.info(`Granularity set to: ${levels[0]}`)
   }
 
   return result

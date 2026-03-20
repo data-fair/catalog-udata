@@ -106,7 +106,7 @@
         "organization",
         { 
           "if": "parent.data.url.includes('data.gouv.fr') && parent.data.organization",
-          "children": [{"markdown": "## Certifier votre organisation sur data.gouv.fr\nLa certification (facultative) renforce la **crédibilité** et la **visibilité** de votre organisation sur data.gouv.fr.  \nElle permet également aux publications issues de Data Fair d’afficher des aperçus enrichis sur data.gouv.fr, tels que :<br>- Une vue **tableau** (ou **carte** pour les données géographiques)<br>- La description du **schéma de données**<br>- L’affichage de la documentation **OpenAPI**\n\n**Comment faire ?** En tant qu’administrateur, vous pouvez faire la demande auprès du [support data.gouv.fr](https://www.data.gouv.fr/support) en précisant l’URL de votre organisation.  [En savoir plus](https://doc.data.gouv.fr/organisations/certifier-une-organisation/)" }]
+          "children": [{"markdown": "## Certifier votre organisation sur data.gouv.fr\nLa certification (facultative) renforce la **crédibilité** et la **visibilité** de votre organisation sur data.gouv.fr.  \nElle permet également aux publications issues de Data Fair d’afficher des aperçus enrichis sur data.gouv.fr, tels que :<br>- Une vue **tableau** (ou **carte** pour les données géographiques)<br>- La description du **schéma de données**<br>- L’affichage de la documentation **OpenAPI**\n\n**Comment faire ?** En tant qu'administrateur, vous pouvez faire la demande auprès du [support data.gouv.fr](https://www.data.gouv.fr/support) en précisant l'URL de votre organisation.  [En savoir plus](https://guides.data.gouv.fr/organisations/obtenir-une-certification)" }]
         }
       ]
     }

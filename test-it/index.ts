@@ -166,7 +166,7 @@ describe('catalog-udata', () => {
   })
 
   let remoteFolderId: string
-  it('should publish a dataset', async () => {
+  it('should publish a dataset and create a dataservice', async () => {
     const dataset = {
       id: 'test-dataset',
       title: 'Test Dataset',
@@ -195,17 +195,132 @@ describe('catalog-udata', () => {
     assert.ok(result.remoteFolder, 'The returned publication should have a remote folder')
     assert.ok(result.remoteFolder.id, 'The returned publication should have a remote folder with an ID')
     remoteFolderId = result.remoteFolder.id
+
+    // Verify the dataservice was created by checking dataset extras
+    const response = await axios.get(
+      new URL(`api/1/datasets/${remoteFolderId}`, catalogConfig.url).href,
+      { headers: { 'X-API-KEY': secrets.apiKey } }
+    )
+    const remoteDataset = response.data
+    assert.ok(remoteDataset.extras?.dataserviceId, 'Dataset extras should contain dataserviceId')
+
+    // Verify the dataservice exists on data.gouv.fr
+    const dsResponse = await axios.get(
+      new URL(`api/1/dataservices/${remoteDataset.extras.dataserviceId}/`, catalogConfig.url).href,
+      { headers: { 'X-API-KEY': secrets.apiKey } }
+    )
+    assert.equal(dsResponse.data.title, dataset.title, 'Dataservice title should match dataset title')
+    assert.ok(dsResponse.data.base_api_url.includes('test-dataset'), 'Dataservice base_api_url should reference the dataset')
+    assert.equal(dsResponse.data.private, true, 'Dataservice should be private (dataset is private)')
   })
 
-  it('should delete a publication', async () => {
+  it('should update the dataservice on re-publication', async () => {
+    const dataset = {
+      id: 'test-dataset',
+      title: 'Test Dataset Updated',
+      description: 'Updated description',
+      slug: 'test-dataset',
+      public: true
+    }
+    const publication = {
+      action: 'createFolderInRoot' as const,
+      remoteFolder: { id: remoteFolderId, title: 'Test Dataset', url: '' }
+    }
+    const publicationSite = {
+      title: 'Test Site',
+      url: 'http://example.com',
+      datasetUrlTemplate: 'http://example.com/data-fair/{id}'
+    }
+
+    const result = await catalogPlugin.publishDataset({
+      catalogConfig,
+      secrets,
+      dataset,
+      publication,
+      publicationSite,
+      log: logFunctions
+    })
+    assert.ok(result.remoteFolder?.id, 'Update should succeed')
+
+    // Verify the dataservice was updated
+    const response = await axios.get(
+      new URL(`api/1/datasets/${remoteFolderId}`, catalogConfig.url).href,
+      { headers: { 'X-API-KEY': secrets.apiKey } }
+    )
+    const dsResponse = await axios.get(
+      new URL(`api/1/dataservices/${response.data.extras.dataserviceId}/`, catalogConfig.url).href,
+      { headers: { 'X-API-KEY': secrets.apiKey } }
+    )
+    assert.equal(dsResponse.data.title, 'Test Dataset Updated', 'Dataservice title should be updated')
+    assert.equal(dsResponse.data.private, false, 'Dataservice should now be public')
+  })
+
+  it('should delete a publication and its dataservice', async () => {
+    // Read dataserviceId before deletion
+    const response = await axios.get(
+      new URL(`api/1/datasets/${remoteFolderId}`, catalogConfig.url).href,
+      { headers: { 'X-API-KEY': secrets.apiKey } }
+    )
+    const dataserviceIdBeforeDelete = response.data.extras?.dataserviceId
+    assert.ok(dataserviceIdBeforeDelete, 'Should have a dataserviceId before deletion')
+
     await catalogPlugin.deletePublication({
       catalogConfig,
       secrets,
       folderId: remoteFolderId,
       log: logFunctions
     })
-    // Since this is a test with demo API, we can't verify the deletion, but we can check that no error is thrown
-    assert.ok(true, 'Delete operation should not throw an error')
+
+    // Verify the dataservice was deleted (soft delete — returns 200 with deleted_at)
+    const dsResponse = await axios.get(
+      new URL(`api/1/dataservices/${dataserviceIdBeforeDelete}/`, catalogConfig.url).href,
+      { headers: { 'X-API-KEY': secrets.apiKey } }
+    )
+    assert.ok(dsResponse.data.deleted_at, 'Dataservice should have a deleted_at timestamp after deletion')
+  })
+
+  it('should not create a dataservice for metadata-only datasets', async () => {
+    const dataset = {
+      id: 'test-meta-only',
+      title: 'Test Meta Only',
+      description: 'Metadata-only dataset',
+      slug: 'test-meta-only',
+      public: false,
+      isMetaOnly: true
+    }
+    const publication = {
+      action: 'createFolderInRoot' as const
+    }
+    const publicationSite = {
+      title: 'Test Site',
+      url: 'http://example.com',
+      datasetUrlTemplate: 'http://example.com/data-fair/{id}'
+    }
+
+    const result = await catalogPlugin.publishDataset({
+      catalogConfig,
+      secrets,
+      dataset,
+      publication,
+      publicationSite,
+      log: logFunctions
+    })
+    assert.ok(result.remoteFolder?.id, 'Publication should succeed')
+
+    // Verify NO dataservice was created
+    const response = await axios.get(
+      new URL(`api/1/datasets/${result.remoteFolder.id}`, catalogConfig.url).href,
+      { headers: { 'X-API-KEY': secrets.apiKey } }
+    )
+    assert.ok(!response.data.extras?.dataserviceId, 'Metadata-only dataset should not have a dataserviceId')
+
+    // Clean up
+    await catalogPlugin.deletePublication({
+      catalogConfig,
+      secrets,
+      folderId: result.remoteFolder.id,
+      log: logFunctions
+    })
   })
 
   describe('spatial coverage mapping', () => {
