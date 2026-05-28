@@ -2,7 +2,6 @@ import type { Metadata } from '@data-fair/types-catalogs'
 
 const i18n: Metadata['i18n'] = {
   en: {
-    description: 'Import / publish datasets from / to a Udata catalog. (e.g., data.gouv.fr)',
     actionLabels: {
       createFolderInRoot: 'Create a new dataset',
       createResource: 'Add as a file',
@@ -22,7 +21,6 @@ const i18n: Metadata['i18n'] = {
     }
   },
   fr: {
-    description: 'Importez / publiez des jeux de données depuis / vers un catalogue Udata. (ex. : data.gouv.fr)',
     actionLabels: {
       createFolderInRoot: 'Créer un nouveau jeu de données',
       createResource: 'Ajouter en tant que fichier',

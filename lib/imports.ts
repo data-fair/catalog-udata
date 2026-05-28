@@ -47,7 +47,7 @@ export const getResource = async ({ catalogConfig, secrets, importConfig, resour
   const urlPath = new URL(udataResource.url).pathname
   let extension = path.extname(urlPath) || '.dat'
   if (!extension || extension === '.dat') {
-    const contentType = response.headers['content-type']
+    const contentType = response.headers['content-type'] as string | undefined
     if (contentType?.includes('json')) extension = '.json'
     else if (contentType?.includes('csv')) extension = '.csv'
     else if (contentType?.includes('xml')) extension = '.xml'
