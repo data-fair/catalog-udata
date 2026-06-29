@@ -106,7 +106,12 @@
         "organization",
         { 
           "if": "parent.data.url.includes('data.gouv.fr') && parent.data.organization",
-          "children": [{"markdown": "## Certifier votre organisation sur data.gouv.fr\nLa certification (facultative) renforce la **crédibilité** et la **visibilité** de votre organisation sur data.gouv.fr.  \nElle permet également aux publications issues de Data Fair d’afficher des aperçus enrichis sur data.gouv.fr, tels que :<br>- Une vue **tableau** (ou **carte** pour les données géographiques)<br>- La description du **schéma de données**<br>- L’affichage de la documentation **OpenAPI**\n\n**Comment faire ?** En tant qu'administrateur, vous pouvez faire la demande auprès du [support data.gouv.fr](https://www.data.gouv.fr/support) en précisant l'URL de votre organisation.  [En savoir plus](https://guides.data.gouv.fr/organisations/obtenir-une-certification)" }]
+          "children": [{
+            "markdown": "## Certify your organization on data.gouv.fr\nCertification (optional) strengthens the **credibility** and **visibility** of your organization on data.gouv.fr.  \nIt also allows publications from Data Fair to display enriched previews on data.gouv.fr, such as:<br>- A **table** view (or **map** for geographic data)<br>- The description of the **data schema**<br>- The display of the **OpenAPI** documentation\n\n**How to do it?** As an administrator, you can make the request to [data.gouv.fr support](https://www.data.gouv.fr/support) specifying the URL of your organization.  [Learn more](https://guides.data.gouv.fr/organisations/obtenir-une-certification)",
+            "x-i18n-markdown": {
+              "fr": "## Certifier votre organisation sur data.gouv.fr\nLa certification (facultative) renforce la **crédibilité** et la **visibilité** de votre organisation sur data.gouv.fr.  \nElle permet également aux publications issues de Data Fair d’afficher des aperçus enrichis sur data.gouv.fr, tels que :<br>- Une vue **tableau** (ou **carte** pour les données géographiques)<br>- La description du **schéma de données**<br>- L’affichage de la documentation **OpenAPI**\n\n**Comment faire ?** En tant qu'administrateur, vous pouvez faire la demande auprès du [support data.gouv.fr](https://www.data.gouv.fr/support) en précisant l'URL de votre organisation.  [En savoir plus](https://guides.data.gouv.fr/organisations/obtenir-une-certification)"
+            }
+          }]
         }
       ]
     }
