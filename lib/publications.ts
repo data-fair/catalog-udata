@@ -2,6 +2,7 @@ import type { CatalogPlugin, Publication, PublishDatasetContext, DeletePublicati
 import type { UDataConfig } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'
+import { dropApiKeyOnRedirect } from './api-key.ts'
 import { microTemplate } from '@data-fair/lib-utils/micro-template.js'
 
 export const publishDataset = async (context: PublishDatasetContext<UDataConfig>): ReturnType<CatalogPlugin['publishDataset']> => {
@@ -17,7 +18,7 @@ export const deletePublication = async (context: DeletePublicationContext<UDataC
 }
 
 const createOrUpdateDataset = async ({ catalogConfig, secrets, dataset, publication, publicationSite, log }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
-  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
+  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey }, beforeRedirect: dropApiKeyOnRedirect(catalogConfig.url) }
   const datasetUrl = microTemplate(publicationSite.datasetUrlTemplate || '', { id: dataset.id, slug: dataset.slug })
   const useSlug = !!(publicationSite.datasetUrlTemplate && publicationSite.datasetUrlTemplate.includes('slug'))
   const isUpdate = !!publication.remoteFolder
@@ -307,7 +308,7 @@ const deleteDataservice = async (catalogUrl: string, dataserviceId: string, axio
 }
 
 const deleteDataset = async ({ catalogConfig, secrets, folderId, log }: DeletePublicationContext<UDataConfig>): Promise<void> => {
-  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
+  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey }, beforeRedirect: dropApiKeyOnRedirect(catalogConfig.url) }
 
   // Try to read the dataset to get the linked dataserviceId
   try {
@@ -335,7 +336,7 @@ const deleteDataset = async ({ catalogConfig, secrets, folderId, log }: DeletePu
 const createOrUpdateResource = async ({ catalogConfig, secrets, dataset, publication, publicationSite, log }: PublishDatasetContext<UDataConfig>): Promise<Publication> => {
   await log.step('Preparing the resource for publication on UData')
 
-  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey } }
+  const axiosOptions = { headers: { 'X-API-KEY': secrets.apiKey }, beforeRedirect: dropApiKeyOnRedirect(catalogConfig.url) }
 
   let datasetId: string | undefined
   let resourceId: string | undefined
@@ -426,7 +427,7 @@ const deleteResource = async ({ catalogConfig, secrets, folderId, resourceId, lo
     }
 
     await log.step(`Deleting resource ${actualResourceId} from dataset ${datasetId}`)
-    await axios.delete(new URL(`api/1/datasets/${datasetId}/resources/${actualResourceId}`, catalogConfig.url).href, { headers: { 'X-API-KEY': secrets.apiKey } })
+    await axios.delete(new URL(`api/1/datasets/${datasetId}/resources/${actualResourceId}`, catalogConfig.url).href, { headers: { 'X-API-KEY': secrets.apiKey }, beforeRedirect: dropApiKeyOnRedirect(catalogConfig.url) })
     await log.info(`Resource ${actualResourceId} deleted successfully`)
   } catch (e: any) {
     await log.error(`Error deleting resource: ${e.message}`)

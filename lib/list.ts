@@ -2,11 +2,12 @@ import type { CatalogPlugin, ListContext, Folder } from '@data-fair/types-catalo
 import type { UDataConfig } from '#types'
 import type { UDataCapabilities } from './capabilities.ts'
 import axios from '@data-fair/lib-node/axios.js'
+import { dropApiKeyOnRedirect } from './api-key.ts'
 
 export const list = async ({ catalogConfig, secrets, params }: ListContext<UDataConfig, UDataCapabilities>): ReturnType<CatalogPlugin['list']> => {
   if (params.action && !secrets.apiKey) throw new Error('API key is required to list datasets for publication')
 
-  const axiosOptions: Record<string, any> = { headers: {}, params: {} }
+  const axiosOptions: Record<string, any> = { headers: {}, params: {}, beforeRedirect: dropApiKeyOnRedirect(catalogConfig.url) }
   if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
   if (params.q) axiosOptions.params.q = params.q
 

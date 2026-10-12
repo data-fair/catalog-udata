@@ -2,6 +2,7 @@ import type { CatalogPlugin, Resource, GetResourceContext } from '@data-fair/typ
 import type { UDataConfig } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'
+import { dropApiKeyOnRedirect } from './api-key.ts'
 
 export const getResource = async ({ catalogConfig, secrets, importConfig, resourceId, tmpDir, log }: GetResourceContext<UDataConfig>): ReturnType<CatalogPlugin['getResource']> => {
   // Decode the composite ID (format: "datasetId:resourceId")
@@ -14,7 +15,7 @@ export const getResource = async ({ catalogConfig, secrets, importConfig, resour
   await log.info(`datasetId=${datasetId}, resourceId=${udataResourceId}`)
 
   // Axios configuration with API key if available
-  const axiosOptions: Record<string, any> = { headers: {} }
+  const axiosOptions: Record<string, any> = { headers: {}, beforeRedirect: dropApiKeyOnRedirect(catalogConfig.url) }
   if (secrets.apiKey) axiosOptions.headers['X-API-KEY'] = secrets.apiKey
 
   // Get the dataset containing the resource

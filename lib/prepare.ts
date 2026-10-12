@@ -3,6 +3,7 @@ import type { UDataCapabilities } from './capabilities.ts'
 import type { UDataConfig } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'
+import { dropApiKeyOnRedirect } from './api-key.ts'
 
 export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<UDataConfig, UDataCapabilities>) => {
   // Manage secrets
@@ -40,7 +41,8 @@ export default async ({ catalogConfig, capabilities, secrets }: PrepareContext<U
       user = (await axios.get(`${catalogConfig.url}/api/1/me`, {
         headers: {
           'X-API-KEY': secrets.apiKey
-        }
+        },
+        beforeRedirect: dropApiKeyOnRedirect(catalogConfig.url)
       })).data
     } catch (error: any) {
       if (error.status === 401) throw new Error('Invalid API key')
