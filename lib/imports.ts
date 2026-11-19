@@ -3,6 +3,7 @@ import type { UDataConfig } from '#types'
 
 import axios from '@data-fair/lib-node/axios.js'
 import { dropApiKeyOnRedirect } from './api-key.ts'
+import { getFileExtension } from './file-extension.ts'
 
 export const getResource = async ({ catalogConfig, secrets, importConfig, resourceId, tmpDir, log }: GetResourceContext<UDataConfig>): ReturnType<CatalogPlugin['getResource']> => {
   // Decode the composite ID (format: "datasetId:resourceId")
@@ -44,21 +45,19 @@ export const getResource = async ({ catalogConfig, secrets, importConfig, resour
     responseType: 'stream'
   })
 
-  // Determine the file extension from the URL or Content-Type
-  const urlPath = new URL(udataResource.url).pathname
-  let extension = path.extname(urlPath) || '.dat'
-  if (!extension || extension === '.dat') {
-    const contentType = response.headers['content-type'] as string | undefined
-    if (contentType?.includes('json')) extension = '.json'
-    else if (contentType?.includes('csv')) extension = '.csv'
-    else if (contentType?.includes('xml')) extension = '.xml'
-    else if (contentType?.includes('excel')) extension = '.xlsx'
-    else if (contentType?.includes('zip')) extension = '.zip'
-  }
+  // Determine the file extension from the URL, the udata format or the Content-Type
+  const extension = getFileExtension(
+    new URL(udataResource.url).pathname,
+    udataResource.format,
+    response.headers['content-type'] as string | undefined
+  )
   await log.info(`File extension determined: ${extension}`)
 
   // Create a filename
-  const resourceTitle = udataResource.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'resource'
+  // Strip the extension from the title when it already ends with it (e.g. "decp.csv.gz")
+  let rawTitle: string = udataResource.title ?? ''
+  if (rawTitle.toLowerCase().endsWith(extension)) rawTitle = rawTitle.slice(0, -extension.length)
+  const resourceTitle = rawTitle.replace(/[^a-zA-Z0-9]/g, '_') || 'resource'
   const fileName = `${resourceTitle}${extension}`
   const filePath = path.join(tmpDir, fileName)
   await log.info(`Downloading resource to ${fileName}`)
